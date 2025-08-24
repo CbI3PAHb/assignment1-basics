@@ -1,6 +1,7 @@
 import os
 import logging
 import multiprocessing
+import pickle
 import regex as re
 import tqdm
 
@@ -24,18 +25,6 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 logger.info("Calling file itself...")
-
-
-# def pretokenize(chunk: str, byte_string_frequencies: dict[tuple[bytes], int], special_tokens: list[str]):
-#     split_pattern = f"({'|'.join(map(re.escape, special_tokens))})"
-#     sub_chunks = re.split(split_pattern, chunk)
-
-#     for sub_chunk in sub_chunks:
-#         if not sub_chunk or (sub_chunk in special_tokens):
-#             continue
-#         for pre_token in re.finditer(PAT, sub_chunk):
-#             byte_representation = tuple(bytes([b]) for b in pre_token.group(0).encode("utf-8"))
-#             byte_string_frequencies[byte_representation] = byte_string_frequencies.get(byte_representation, 0) + 1
 
 
 def calculate_num_chunks(file_path, desired_chunk_size: int = None):
@@ -121,7 +110,7 @@ def bpeTrainingFunction(
     byte_string_frequencies: dict[tuple[bytes], int] = dict()
 
     logger.info("Pre-tokenization process...")
-    PROCESSES = 8
+    PROCESSES = 10
 
     with multiprocessing.Pool(PROCESSES) as pool:
         TASKS = []
@@ -151,11 +140,26 @@ def bpeTrainingFunction(
     merges: list[tuple[bytes, bytes]] = []
 
     pair_frequencies: dict[tuple[bytes], int] = {}
+    pair_of_tokens_to_indexes: dict[tuple[bytes], set[int]] = dict()
+    word_index_to_word: dict[int, tuple[bytes]] = dict()
+    word_index_to_frequency: dict[int, int] = dict()
+
     for byte_string, frequency in byte_string_frequencies.items():
         for pair in zip(byte_string, byte_string[1:]):
             pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
-    
+
+    for index, (byte_string, frequency) in enumerate(byte_string_frequencies.items()):
+        word_index_to_word[index] = byte_string
+        word_index_to_frequency[index] = frequency
+        for pair in zip(byte_string, byte_string[1:]):
+            if pair not in pair_of_tokens_to_indexes:
+                pair_of_tokens_to_indexes[pair] = set()
+            pair_of_tokens_to_indexes[pair].add(index)
+
     for new_token_index in tqdm.tqdm(range(initial_vocab_size, vocab_size - len(special_tokens))):
+        if not pair_frequencies:
+            break
+
         logger.debug(f"Adding new token with index {new_token_index:5d}")
         # logger.info("Counting initial pair frequencies")
 
@@ -168,35 +172,42 @@ def bpeTrainingFunction(
         merges.append(most_frequent_pair)
         vocabulary[new_token_index] = new_byte_token
 
-        new_byte_string_frequencies: dict[tuple[bytes], int] = dict()
+        word_indexes_where_new_byte_pair_exists: list[int] = list(pair_of_tokens_to_indexes[most_frequent_pair])
 
-        for byte_string, frequency in byte_string_frequencies.items():
+        for word_index in word_indexes_where_new_byte_pair_exists:
+            current_byte_string: tuple[bytes] = word_index_to_word[word_index]
+            frequency: int = word_index_to_frequency[word_index]
+
+            # forming new word
             i = 0
             string_parts = []
-            changes_exists = False
-            while i < len(byte_string):
-                if i + 1 < len(byte_string) and (byte_string[i] + byte_string[i + 1]) == new_byte_token:
-                    changes_exists = True
+            while i < len(current_byte_string):
+                if i + 1 < len(current_byte_string) and (current_byte_string[i] + current_byte_string[i + 1]) == new_byte_token:
                     string_parts.append(new_byte_token)
                     i += 2
                 else:
-                    string_parts.append(byte_string[i])
+                    string_parts.append(current_byte_string[i])
                     i += 1
-            
+
+            for pair in set(zip(current_byte_string, current_byte_string[1:])):
+                pair_of_tokens_to_indexes[pair].remove(word_index)
+                if not pair_of_tokens_to_indexes[pair]:
+                    del pair_of_tokens_to_indexes[pair]
+
+            for pair in zip(current_byte_string, current_byte_string[1:]):
+                pair_frequencies[pair] -= frequency
+                if pair_frequencies[pair] == 0:
+                    del pair_frequencies[pair]
+
             new_byte_string = tuple(string_parts)
+            for pair in zip(new_byte_string, new_byte_string[1:]):
+                pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
+                if pair not in pair_of_tokens_to_indexes:
+                    pair_of_tokens_to_indexes[pair] = set()
+                pair_of_tokens_to_indexes[pair].add(word_index)
 
-            if changes_exists:
-                for pair in zip(byte_string, byte_string[1:]):
-                    pair_frequencies[pair] -= frequency
-                    if pair_frequencies[pair] == 0:
-                        del pair_frequencies[pair]
+            word_index_to_word[word_index] = new_byte_string
 
-                for pair in zip(new_byte_string, new_byte_string[1:]):
-                    pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency 
-            new_byte_string_frequencies[new_byte_string] = new_byte_string_frequencies.get(new_byte_string, 0) + frequency
-        byte_string_frequencies = new_byte_string_frequencies
-        # logger.debug(f"new_byte_string_frequencies: {new_byte_string_frequencies}")
-        
     for special_token in special_tokens:
         vocabulary[len(vocabulary)] = special_token.encode('utf-8')
     return vocabulary, merges
@@ -205,5 +216,21 @@ def bpeTrainingFunction(
 
 if __name__ == "__main__":
     # vocab, merges = bpeTrainingFunction("/Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt", 512, ['<|endoftext|>'])
-    vocab, merges = bpeTrainingFunction("/Users/parii-artem/Documents/assignment1-basics/data/owt_train.txt", 32000, ['<|endoftext|>'])
     # bpeTrainingFunction("/Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt", 512, ['<|endoftext|>'])
+
+    main_directory = "/Users/parii-artem/Documents/assignment1-basics/data"
+
+    # tiny_stories
+    # vocab_size = 10000
+    # tokenizer_file_path = "/Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_train_tokenizer.pkl"
+    # dataset_file_path = os.path.join(main_directory, "TinyStoriesV2-GPT4-train.txt")
+
+    # owt
+    vocab_size = 32000
+    tokenizer_file_path = "/Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owe_train_tokenizer.pkl"
+    dataset_file_path = os.path.join(main_directory, "owt_train.txt")
+
+    vocab, merges = bpeTrainingFunction(dataset_file_path, 10000, ['<|endoftext|>'])
+
+    with open(tokenizer_file_path, 'wb') as f:
+        pickle.dump({"vocab": vocab, "merges": merges}, f)
