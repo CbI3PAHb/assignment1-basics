@@ -2,7 +2,7 @@ import multiprocessing
 import time
 import random
 import sys
-
+import tqdm
 #
 # Functions used by test code
 #
@@ -18,11 +18,11 @@ def calculatestar(args):
     return calculate(*args)
 
 def mul(a, b):
-    time.sleep(2 * random.random())
+    time.sleep(0.5 * random.random())
     return a * b
 
 def plus(a, b):
-    time.sleep(2 * random.random())
+    time.sleep(0.5 * random.random())
     return a + b
 
 def f(x):
@@ -65,6 +65,7 @@ def test():
         print()
 
         print('Unordered results using pool.imap_unordered():')
+        # for x in tqdm.tqdm(imap_unordered_it, total=20):
         for x in imap_unordered_it:
             print('\t', x)
         print()
