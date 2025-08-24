@@ -230,7 +230,7 @@ if __name__ == "__main__":
     tokenizer_file_path = "/Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owe_train_tokenizer.pkl"
     dataset_file_path = os.path.join(main_directory, "owt_train.txt")
 
-    vocab, merges = bpeTrainingFunction(dataset_file_path, 10000, ['<|endoftext|>'])
+    vocab, merges = bpeTrainingFunction(dataset_file_path, vocab_size, ['<|endoftext|>'])
 
     with open(tokenizer_file_path, 'wb') as f:
         pickle.dump({"vocab": vocab, "merges": merges}, f)
