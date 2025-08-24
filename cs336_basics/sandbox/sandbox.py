@@ -1,6 +1,6 @@
 import logging
 import regex as re
-# from cs336_basics.pretokenization_example import PAT
+from cs336_basics.pretokenization_example import PAT
 
 # --- 1. Настройка логгера (исправлено getLogger) ---
 # Использование name — это стандартная практика.
@@ -27,12 +27,12 @@ logger.info("Preparing main....")
 
 def main():
     logger.info("Script started.")
-    
+
     strings = ['low'] * 5 + ["lower"] * 2 + ["widest"] * 3 + ["newest"] * 6
     string = " ".join(strings)
-    
+
     pretokenized_strings = string.split(' ')
-    
+
     logger.debug("Pre-tokenized strings: %s", pretokenized_strings)
 
     initial_frequencies: dict[tuple[bytes], int] = {}
@@ -79,7 +79,7 @@ def main():
                     i += 1
             merged_word_tuple = tuple(new_world_parts)
             new_initial_frequencies[merged_word_tuple] = new_initial_frequencies.get(merged_word_tuple, 0) + count
-        
+
         logger.debug(f"frequencies after merge: {new_initial_frequencies}")
         initial_frequencies = new_initial_frequencies
     logger.debug(f"merges: {merges}")
