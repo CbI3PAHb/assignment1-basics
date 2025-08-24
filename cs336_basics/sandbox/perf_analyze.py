@@ -16,13 +16,14 @@ import pstats
 perf_file_path = "/Users/parii-artem/Documents/assignment1-basics/output.prof"
 
 p = pstats.Stats(perf_file_path)
+n_top_stats = 32
 
 # Sort by different criteria and print results
-print("=== Top 20 by cumulative time ===")
-p.sort_stats('cumulative').print_stats(20)
+print(f"=== Top {n_top_stats} by cumulative time ===")
+p.sort_stats('cumulative').print_stats(n_top_stats)
 
-print("\n=== Top 20 by internal time ===")
-p.sort_stats('time').print_stats(20)
+print(f"\n=== Top {n_top_stats} by internal time ===")
+p.sort_stats('time').print_stats(n_top_stats)
 
-print("\n=== Top 20 by number of calls ===")
-p.sort_stats('calls').print_stats(20)
+print(f"\n=== Top {n_top_stats} by number of calls ===")
+p.sort_stats('calls').print_stats(n_top_stats)
