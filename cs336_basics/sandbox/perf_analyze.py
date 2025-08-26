@@ -20,10 +20,10 @@ n_top_stats = 32
 
 # Sort by different criteria and print results
 print(f"=== Top {n_top_stats} by cumulative time ===")
-p.sort_stats('cumulative').print_stats(n_top_stats)
+p.sort_stats("cumulative").print_stats(n_top_stats)
 
 print(f"\n=== Top {n_top_stats} by internal time ===")
-p.sort_stats('time').print_stats(n_top_stats)
+p.sort_stats("time").print_stats(n_top_stats)
 
 print(f"\n=== Top {n_top_stats} by number of calls ===")
-p.sort_stats('calls').print_stats(n_top_stats)
+p.sort_stats("calls").print_stats(n_top_stats)
