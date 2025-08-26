@@ -91,26 +91,6 @@ def merge(
     return new_byte_string_frequencies
 
 
-def get_most_frequence_pair(
-    pq: list[tuple[int, ReverseLexOrderPair]],
-    pair_frequencies: dict[tuple[bytes, bytes], int],
-) -> tuple[bytes, bytes]:
-    assert len(pq) > 0 and len(pair_frequencies) > 0
-
-    while pq:
-        # potential most frequency pair - O(log N)
-        heap_item: tuple[int, ReverseLexOrderPair] = heapq.heappop(pq)
-        neg_freq: int = heap_item[0]
-        reversed_lexical_order_pair: ReverseLexOrderPair = heap_item[1]
-        pair: tuple[bytes, bytes] = reversed_lexical_order_pair.pair
-
-        # Important: compare potential pair frequency with true most frequency pair
-        if -neg_freq == pair_frequencies.get(pair):
-            most_frequent_pair: tuple[bytes, bytes] = pair
-            break
-    return most_frequent_pair
-
-
 def create_new_byte_string(
     byte_string: tuple[bytes, ...],
     most_frequency_pair: tuple[bytes, bytes],
@@ -128,23 +108,25 @@ def create_new_byte_string(
     return new_byte_string
 
 
-def update_frequencies(
-    byte_string_frequencies: dict[tuple[bytes, ...], int]
-) -> dict[tuple[bytes, bytes], int]:
-    pair_frequencies          : dict[tuple[bytes, bytes], int]      = dict()
-    for byte_string, frequency in byte_string_frequencies.items():
-        for pair in zip(byte_string, byte_string[1:]):
-            pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
-    return pair_frequencies
+def get_most_frequence_pair(
+    pq: list[tuple[int, ReverseLexOrderPair]],
+    pair_frequencies: dict[tuple[bytes, bytes], int],
+) -> tuple[bytes, bytes]:
+    assert len(pq) > 0 and len(pair_frequencies) > 0
+    most_frequent_pair = None
+    while pq:
+        # potential most frequency pair - O(log N)
+        heap_item: tuple[int, ReverseLexOrderPair] = heapq.heappop(pq)
+        neg_freq: int = heap_item[0]
+        reversed_lexical_order_pair: ReverseLexOrderPair = heap_item[1]
+        pair: tuple[bytes, bytes] = reversed_lexical_order_pair.pair
 
-# def update_frequencies(
-#     byte_string_frequencies: dict[tuple[bytes, ...], int]
-# ) -> dict[tuple[bytes, bytes], int]:
-#     pair_frequencies          : dict[tuple[bytes, bytes], int]      = dict()
-#     for byte_string, frequency in byte_string_frequencies.items():
-#         for pair in zip(byte_string, byte_string[1:]):
-#             pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
-#     return pair_frequencies
+        # Important: compare potential pair frequency with true most frequency pair
+        if -neg_freq == pair_frequencies.get(pair):
+            most_frequent_pair: tuple[bytes, bytes] = pair
+            break
+    assert most_frequent_pair is not None
+    return most_frequent_pair
 
 
 def bpeTrainingFunction(
@@ -224,6 +206,8 @@ def bpeTrainingFunction(
     for new_token_index in range(init_vocab_size, vocab_size - len(special_tokens)):
         if not pair_frequencies:
             break
+
+
 
         most_frequency_pair: tuple[bytes, bytes] = get_most_frequence_pair(pq, pair_frequencies)
         merges.append(most_frequency_pair)
