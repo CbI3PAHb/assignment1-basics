@@ -1,8 +1,12 @@
 import logging
+
 import regex as re
+
 from cs336_basics.pretokenization_example import PAT, find_chunk_boundaries
 
-dataset_path = "/Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt"
+dataset_path = (
+    "/Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt"
+)
 with open(dataset_path, "rb") as f:
     num_processes = 256
     boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
