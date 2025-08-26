@@ -1,6 +1,7 @@
 import logging
 
 import regex as re
+
 from cs336_basics.pretokenization_example import PAT
 
 # --- 1. Настройка логгера (исправлено getLogger) ---
