@@ -1,7 +1,7 @@
 """
 owt_valid
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/naive_tokenization.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/owt_valid.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_valid_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_valid_json_logs.json \
@@ -14,7 +14,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 owt_train
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/naive_tokenization.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/owt_train.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_json_logs.json \
@@ -27,7 +27,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 tiny_stories_valid
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/naive_tokenization.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_valid_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_valid_json_logs.json \
@@ -40,7 +40,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 tiny_stories_train
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/naive_tokenization.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_train_json_logs.json \
@@ -63,7 +63,6 @@ import time
 import regex as re
 import tqdm
 
-from collections import Counter, defaultdict
 from cs336_basics.pretokenization_example import PAT, find_chunk_boundaries
 
 
@@ -280,195 +279,14 @@ def create_new_byte_string(
     return new_byte_string
 
 
-def get_most_frequence_pair(
-    pq: list[tuple[int, ReverseLexOrderPair]],
-    pair_frequencies: dict[tuple[bytes, bytes], int],
-) -> tuple[bytes, bytes]:
-    if pq is None:
-        return max(pair_frequencies, key=lambda x: (pair_frequencies.get(x, 0), x))
-    assert len(pq) > 0 and len(pair_frequencies) > 0
-    most_frequent_pair = None
-    while pq:
-        # potential most frequency pair - O(log N)
-        heap_item: tuple[int, ReverseLexOrderPair] = heapq.heappop(pq)
-        neg_freq: int = heap_item[0]
-        reversed_lexical_order_pair: ReverseLexOrderPair = heap_item[1]
-        pair: tuple[bytes, bytes] = reversed_lexical_order_pair.pair
-
-        # Important: compare potential pair frequency with true most frequency pair
-        if -neg_freq == pair_frequencies.get(pair):
-            most_frequent_pair: tuple[bytes, bytes] = pair
-            break
-    assert most_frequent_pair is not None
-    return most_frequent_pair
-
-def merge(
-    pq: list[tuple[int, ReverseLexOrderPair]],
-    most_frequent_pair: tuple[bytes, bytes],
-    pair_of_tokens_to_index: dict[tuple[bytes, bytes], set[int]],
-    word_index_to_word: dict[int, tuple[bytes]],
-    word_index_to_frequency: dict[int, int],
-    pair_frequencies: dict[tuple[bytes, bytes], int],
-):
-    # Этап 1: Сбор всех изменений с помощью надежного метода "diff"
-    freq_deltas = defaultdict(int)
-    
-    t1, t2 = most_frequent_pair
-    new_token = t1 + t2
-
-    list_of_affected_indexes = list(pair_of_tokens_to_index.get(most_frequent_pair, []))
-
-    for byte_string_index in list_of_affected_indexes:
-        word = word_index_to_word[byte_string_index]
-        frequency = word_index_to_frequency[byte_string_index]
-
-        if len(word) < 2:
-            continue
-        
-        # 1. Считаем пары в СТАРОМ слове
-        old_pairs = Counter(zip(word, word[1:]))
-
-        # 2. Создаем НОВОЕ слово
-        new_word = create_new_byte_string(word, most_frequent_pair)
-        
-        # 3. Считаем пары в НОВОМ слове
-        new_pairs = Counter(zip(new_word, new_word[1:]))
-
-        # 4. Вычисляем дельту как разницу между наборами пар
-        # Пары, которые были, но исчезли, получат отрицательную дельту
-        for pair, count in old_pairs.items():
-            freq_deltas[pair] -= count * frequency
-        # Пары, которые появились, получат положительную дельту
-        for pair, count in new_pairs.items():
-            freq_deltas[pair] += count * frequency
-        
-        # И обновляем само слово в нашем словаре
-        word_index_to_word[byte_string_index] = new_word
-
-    # Этап 2: Применение собранных изменений (этот блок у вас уже правильный)
-    # (Он обновляет pair_of_tokens_to_index, pair_frequencies, и pq)
-    
-    # 2.1 Обновляем инвертированный индекс
-    # Сначала нужно вычислить, какие индексы для каких пар изменились
-    index_updates = {'add': defaultdict(set), 'remove': defaultdict(set)}
-    for pair, delta in freq_deltas.items():
-        # Если дельта отрицательная, значит, старая пара могла исчезнуть из слова
-        if delta < 0:
-            for idx in list_of_affected_indexes:
-                # Если после слияния этой пары в слове не осталось, удаляем индекс
-                if pair not in Counter(zip(word_index_to_word[idx], word_index_to_word[idx][1:])):
-                    index_updates['remove'][pair].add(idx)
-        # Если дельта положительная, значит, новая пара могла появиться
-        if delta > 0:
-            for idx in list_of_affected_indexes:
-                if pair in Counter(zip(word_index_to_word[idx], word_index_to_word[idx][1:])):
-                    index_updates['add'][pair].add(idx)
-
-
-    for pair, indices in index_updates['remove'].items():
-        if pair in pair_of_tokens_to_index:
-            pair_of_tokens_to_index[pair] -= indices
-            if not pair_of_tokens_to_index[pair]:
-                del pair_of_tokens_to_index[pair]
-
-    for pair, indices in index_updates['add'].items():
-        if not indices: continue
-        if pair not in pair_of_tokens_to_index:
-            pair_of_tokens_to_index[pair] = set()
-        pair_of_tokens_to_index[pair].update(indices)
-
-    # 2.2 Обновляем частоты и очередь
-    for pair, delta in freq_deltas.items():
-        if delta == 0:
-            continue
-        
-        current_freq = pair_frequencies.get(pair, 0)
-        new_freq = current_freq + delta
-        
-        if new_freq > 0:
-            pair_frequencies[pair] = new_freq
-            heapq.heappush(pq, (-new_freq, ReverseLexOrderPair(pair)))
-        elif pair in pair_frequencies:
-            del pair_frequencies[pair]
-
-def merge_brutforce(
-    pq: list[tuple[int, ReverseLexOrderPair]],
-    most_frequent_pair: tuple[bytes, bytes],
-    pair_of_tokens_to_index: dict[tuple[bytes, bytes], set[int]],
-    word_index_to_word: dict[int, tuple[bytes]],
-    word_index_to_frequency: dict[int, int],
-    pair_frequencies: dict[tuple[bytes, bytes], int],
-):
-    new_byte_token = most_frequent_pair[0] + most_frequent_pair[1]
-
-    word_indexes_where_new_byte_pair_exists: list[int] = list(
-        pair_of_tokens_to_index[most_frequent_pair]
-    )
-    mean_current_byte_string_len = 0
-
-    for word_index in word_indexes_where_new_byte_pair_exists:
-        current_byte_string: tuple[bytes] = word_index_to_word[word_index]
-        mean_current_byte_string_len += len(current_byte_string)
-        frequency: int = word_index_to_frequency[word_index]
-
-        # forming new word
-        new_byte_string = create_new_byte_string(current_byte_string, most_frequent_pair)
-
-        for pair in set(zip(current_byte_string, current_byte_string[1:])):
-            pair_of_tokens_to_index[pair].remove(word_index)
-            if not pair_of_tokens_to_index[pair]:
-                del pair_of_tokens_to_index[pair]
-
-        for pair in zip(current_byte_string, current_byte_string[1:]):
-            pair_frequencies[pair] -= frequency
-            if pair_frequencies[pair] == 0:
-                del pair_frequencies[pair]
-
-        for pair in zip(new_byte_string, new_byte_string[1:]):
-            pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
-            if pair not in pair_of_tokens_to_index:
-                pair_of_tokens_to_index[pair] = set()
-            pair_of_tokens_to_index[pair].add(word_index)
-
-        word_index_to_word[word_index] = new_byte_string
-
-    mean_current_byte_string_len /= (
-        len(word_indexes_where_new_byte_pair_exists) or 1
-    )
-
-    # log_data = {
-    #     "iteration": new_token_index,
-    #     "pair_frequencies_count": len(pair_frequencies),
-    #     "pair_indexes_count": len(pair_of_tokens_to_index),
-    #     "words_to_merge_count": len(word_indexes_where_new_byte_pair_exists),
-    #     "time_ms": round((time.time() - start_iteration) * 1000, 2),
-    #     "words_in_vocab_count": len(word_index_to_word),
-    #     "mean_string_len": mean_current_byte_string_len,
-    # }
-
-    # json_logger.info(json.dumps(log_data))
-    # time_taken = round((time.time() - start_iteration) * 1000, 3)
-
-    # log_line = (
-    #     f"{new_token_index:>6} | "
-    #     f"{len(pair_frequencies):>10,} | "
-    #     f"{len(pair_of_tokens_to_index):>10,} | "
-    #     f"{len(word_index_to_word):>8,} | "
-    #     f"{len(word_indexes_where_new_byte_pair_exists):>10,} | "
-    #     f"{mean_current_byte_string_len:>8.2f} | "
-    #     f"{time_taken:>9.2f}"
-    # )
-    # logger.debug(log_line)
-
-
 def bpeTrainingFunction(
     input_path: str,
     vocab_size: int,
     special_tokens: list[str],
     chunk_size: int = 1 * 2**20,
     n_process: int = 4,
-    n_iters_to_brutforce_calculate_most_frequence_pair: int = 3000,
-):
+    n_iters_to_brutforce_calculate_most_frequence_pair: int = 300,
+) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """
     1. Vocabulary initialization
     2. Removing special tokens before pre-tokenization
@@ -479,11 +297,11 @@ def bpeTrainingFunction(
     Note: Parallelizing pre-tokenization
     return: tuple(vocab, merges)
     """
+    start_function_time = time.time()
     # 1. Vocabulary initialization
     # logger.info("Vocabulary initialization...")
-    init_vocab_size = 256
-    vocab: dict[int, bytes] = {b: bytes([b]) for b in range(256)}
-    initial_vocab_size = len(vocab)
+    vocabulary: dict[int, bytes] = {b: bytes([b]) for b in range(256)}
+    initial_vocab_size = len(vocabulary)
 
     # 2. Removing special tokens before pre-tokenization
     n_chunks = calculate_num_chunks(input_path, chunk_size)
@@ -494,6 +312,8 @@ def bpeTrainingFunction(
         # The following is a serial implementation, but you can parallelize this
         # by sending each start/end pair to a set of processes.
     byte_string_frequencies: dict[tuple[bytes], int] = dict()
+
+    logger.info(f"start pre-tokenization process with {n_process} proc...")
 
     with multiprocessing.Pool(n_process) as pool:
         TASKS = []
@@ -509,7 +329,11 @@ def bpeTrainingFunction(
             for k, v in x.items():
                 byte_string_frequencies[k] = byte_string_frequencies.get(k, 0) + v
 
+    logger.info(f"Done pretokenization")
     end_pretokenization_process_time = time.time()
+
+    # 4. Compute BPE merges
+    logger.info("Start training tokenizer")
 
     merges                  : list[tuple[bytes, bytes]]           = list()
     pair_frequencies        : dict[tuple[bytes, bytes], int]      = dict()
@@ -528,50 +352,135 @@ def bpeTrainingFunction(
             if pair not in pair_of_tokens_to_index:
                 pair_of_tokens_to_index[pair] = set()
             pair_of_tokens_to_index[pair].add(index)
-    
-    pq = None
 
+    HEADER = f"{'Iter':>6} | {'Pairs':>10} | {'Indexes':>10} | {'Words':>8} | {'MergeIn':>10} | {'MeanLen':>8} | {'Time(ms)':>9}"
+    logger.debug(HEADER)
+
+    # for new_token_index in range(initial_vocab_size, vocab_size - len(special_tokens)):
     for new_token_index in tqdm.tqdm(
         range(initial_vocab_size, vocab_size - len(special_tokens))
     ):
+        start_iteration = time.time()
         if not pair_frequencies:
             break
-            
-        most_frequent_pair: tuple[bytes, bytes] = get_most_frequence_pair(pq, pair_frequencies)
-        merges.append(most_frequent_pair)
-        t1, t2 = most_frequent_pair
-        new_token = t1 + t2
-        vocab[new_token_index] = new_token
 
-        # смержить t1 + t2 во всех словах
-        # upd: смержить t1 + t2 во всех словах, в которых имеет смысл мержить
-        # имеет смысл мержить только слова которые соответствуют индексам из
-        # pair_of_tokens_to_index[most_frequent_pair] ---> set[int]
-        # обновлять теперь надо не byte_string_frequencies,
-        # а pair_of_tokens_to_index
+        # logger.debug(f"Adding new token with index {new_token_index:5d}")
+        # logger.info("Counting initial pair frequencies")
 
-        if new_token_index == n_iters_to_brutforce_calculate_most_frequence_pair:
-            pq: list[tuple[int, ReverseLexOrderPair]] = [
-                (-freq, ReverseLexOrderPair(pair))
-                for pair, freq in pair_frequencies.items()
-            ]
-            heapq.heapify(pq)
+        # logger.debug(f"{len(pair_frequencies)=}")
+        # logger.debug(f"{len(pair_of_tokens_to_index)=}")
+        # logger.debug(f"{len(word_index_to_word)=}")
+        # logger.debug(f"{len(word_index_to_frequency)=}")
+
         if new_token_index < n_iters_to_brutforce_calculate_most_frequence_pair:
-            merge_fn = merge_brutforce
+            most_frequent_pair = max(
+                pair_frequencies, key=lambda x: (pair_frequencies.get(x, 0), x)
+            )
         else:
-            merge_fn = merge
-        merge_fn(
-            pq=pq,
-            most_frequent_pair=most_frequent_pair,
-            pair_of_tokens_to_index=pair_of_tokens_to_index,
-            word_index_to_word=word_index_to_word,
-            word_index_to_frequency=word_index_to_frequency,
-            pair_frequencies=pair_frequencies
+            if new_token_index == n_iters_to_brutforce_calculate_most_frequence_pair:
+                pq = [
+                    (-freq, ReverseLexOrderPair(pair))
+                    for pair, freq in pair_frequencies.items()
+                ]
+                heapq.heapify(pq)
+            while pq:
+                # potential most frequency pair - O(log N)
+                neg_freq, pair = heapq.heappop(pq)
+                pair = pair.pair
+
+                # Important: compare potential pair frequency with true most frequency pair
+                if -neg_freq == pair_frequencies.get(pair):
+                    most_frequent_pair = pair
+                    break
+
+        new_byte_token = most_frequent_pair[0] + most_frequent_pair[1]
+
+        # logger.debug(f"Most frequent pair is {most_frequent_pair} with freq = {pair_frequencies[most_frequent_pair]}")
+        # logger.debug(f"Token to insert: {new_byte_token}")
+        merges.append(most_frequent_pair)
+        vocabulary[new_token_index] = new_byte_token
+
+        word_indexes_where_new_byte_pair_exists: list[int] = list(
+            pair_of_tokens_to_index[most_frequent_pair]
+        )
+        mean_current_byte_string_len = 0
+
+        for word_index in word_indexes_where_new_byte_pair_exists:
+            current_byte_string: tuple[bytes] = word_index_to_word[word_index]
+            mean_current_byte_string_len += len(current_byte_string)
+            frequency: int = word_index_to_frequency[word_index]
+
+            # forming new word
+            new_byte_string = create_new_byte_string(current_byte_string, most_frequent_pair)
+
+            for pair in set(zip(current_byte_string, current_byte_string[1:])):
+                pair_of_tokens_to_index[pair].remove(word_index)
+                if not pair_of_tokens_to_index[pair]:
+                    del pair_of_tokens_to_index[pair]
+
+            for pair in zip(current_byte_string, current_byte_string[1:]):
+                pair_frequencies[pair] -= frequency
+                if pair_frequencies[pair] == 0:
+                    del pair_frequencies[pair]
+                elif (
+                    new_token_index > n_iters_to_brutforce_calculate_most_frequence_pair
+                ):
+                    heapq.heappush(
+                        pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair))
+                    )
+
+            for pair in zip(new_byte_string, new_byte_string[1:]):
+                pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
+                if pair not in pair_of_tokens_to_index:
+                    pair_of_tokens_to_index[pair] = set()
+                pair_of_tokens_to_index[pair].add(word_index)
+                if new_token_index > n_iters_to_brutforce_calculate_most_frequence_pair:
+                    heapq.heappush(
+                        pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair))
+                    )
+
+            word_index_to_word[word_index] = new_byte_string
+
+        mean_current_byte_string_len /= (
+            len(word_indexes_where_new_byte_pair_exists) or 1
         )
 
+        log_data = {
+            "iteration": new_token_index,
+            "pair_frequencies_count": len(pair_frequencies),
+            "pair_indexes_count": len(pair_of_tokens_to_index),
+            "words_to_merge_count": len(word_indexes_where_new_byte_pair_exists),
+            "time_ms": round((time.time() - start_iteration) * 1000, 2),
+            "words_in_vocab_count": len(word_index_to_word),
+            "mean_string_len": mean_current_byte_string_len,
+        }
+
+        json_logger.info(json.dumps(log_data))
+        time_taken = round((time.time() - start_iteration) * 1000, 3)
+
+        log_line = (
+            f"{new_token_index:>6} | "
+            f"{len(pair_frequencies):>10,} | "
+            f"{len(pair_of_tokens_to_index):>10,} | "
+            f"{len(word_index_to_word):>8,} | "
+            f"{len(word_indexes_where_new_byte_pair_exists):>10,} | "
+            f"{mean_current_byte_string_len:>8.2f} | "
+            f"{time_taken:>9.2f}"
+        )
+        logger.debug(log_line)
+
     for special_token in special_tokens:
-        vocab[len(vocab)] = special_token.encode("utf-8")
-    return vocab, merges
+        vocabulary[len(vocabulary)] = special_token.encode("utf-8")
+
+    end_training_bpe_time = time.time()
+    logger.info(
+        f"Pretokenization taken {end_pretokenization_process_time - start_function_time:.3f} sec"
+    )
+    logger.info(
+        f"Train BPE tokenizer taken {end_training_bpe_time - end_pretokenization_process_time:.3f} sec"
+    )
+    logger.info(f"Total time taken: {end_training_bpe_time - start_function_time:.3f}")
+    return vocabulary, merges
 
 
 def main():
@@ -589,7 +498,7 @@ def main():
         special_tokens=["<|endoftext|>"],
         chunk_size=args.chunk_size,
         n_process=args.n_process,
-        n_iters_to_brutforce_calculate_most_frequence_pair=666,
+        n_iters_to_brutforce_calculate_most_frequence_pair=2000,
     )
 
     with open(args.save_file_path, "wb") as f:
