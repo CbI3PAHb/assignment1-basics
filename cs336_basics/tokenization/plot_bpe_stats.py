@@ -1,6 +1,9 @@
 """
 python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/plot_bpe_stats.py \
     /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/json_logs.json
+
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/plot_bpe_stats.py \
+    /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_json_logs.json
 """
 
 import json

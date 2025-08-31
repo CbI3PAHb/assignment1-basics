@@ -6,6 +6,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_valid_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_valid_json_logs.json \
     --log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_valid_app.log \
+    --chunk-size 16777216 \
     --n-process 8
 
 python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/plot_bpe_stats.py \
@@ -19,7 +20,8 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_json_logs.json \
     --log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_app.log \
-    --n-process 8
+    --chunk-size 4194304 \
+    --n-process 12
 
 python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/plot_bpe_stats.py \
     /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_json_logs.json
@@ -45,8 +47,9 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_train_json_logs.json \
     --log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_train_app.log \
-    --n-process 8
+    --n-process 12
 
+    --chunk-size 16777216 \
 python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/plot_bpe_stats.py \
     /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_train_json_logs.json
 """
@@ -149,13 +152,13 @@ def parse_args():
     parser.add_argument(
         "--dataset-file-path",
         type=str,
-        help="Путь к обучающему файлу (большой текстовый файл .txt).",
+        help="Dataset file path (big .txt file).",
     )
     parser.add_argument(
         "--save-file-path",
         type=str,
         default="./bpe_tokenizer",
-        help="Директория для сохранения словаря и правил слияния.",
+        help="Directory to save vocab and merges.",
     )
     parser.add_argument(
         "--vocab-size",
@@ -219,7 +222,7 @@ def calculate_num_chunks(file_path, desired_chunk_size: int = None):
 
 def _pretokenize(args):
 
-    input_path, start_byte, end_byte, special_tokens = args
+    input_path, start_byte, end_byte, special_tokens, logger = args
     if not special_tokens:
         raise RuntimeError(f"There is no special tokens: {special_tokens}")
 
@@ -256,7 +259,7 @@ def _pretokenize(args):
             byte_string_frequencies[byte_representation] = (
                 byte_string_frequencies.get(byte_representation, 0) + 1
             )
-    logger.debug(
+    logger.info(
         f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: pretokenization process done"
     )
     return byte_string_frequencies
@@ -320,7 +323,7 @@ def bpeTrainingFunction(
         for i, (start_byte, end_byte) in enumerate(
             zip(chunk_boundaries[:-1], chunk_boundaries[1:])
         ):
-            args = (input_path, start_byte, end_byte, special_tokens)
+            args = (input_path, start_byte, end_byte, special_tokens, logger)
             TASKS.append(args)
 
         imap_unordered_it = pool.imap_unordered(_pretokenize, TASKS)
@@ -488,21 +491,38 @@ def main():
 
     setup_logging(args)
 
-    logger = logging.getLogger(__name__)
-    logger.info("Starting process...")
-    logger.debug(f"Recieved arguments: {args}")
+    # # logger = logging.getLogger(__name__)
+    # # json_logger = logging.getLogger("bpe_json_logger")
+    # logger.info("Starting process...")
+    # logger.debug(f"Recieved arguments: {args}")
 
-    vocab, merges = bpeTrainingFunction(
-        input_path=args.dataset_file_path,
-        vocab_size=args.vocab_size,
-        special_tokens=["<|endoftext|>"],
-        chunk_size=args.chunk_size,
-        n_process=args.n_process,
-        n_iters_to_brutforce_calculate_most_frequence_pair=2000,
-    )
+    # vocab, merges = bpeTrainingFunction(
+    #     input_path=args.dataset_file_path,
+    #     vocab_size=args.vocab_size,
+    #     special_tokens=["<|endoftext|>"],
+    #     chunk_size=args.chunk_size,
+    #     n_process=args.n_process,
+    #     n_iters_to_brutforce_calculate_most_frequence_pair=3000,
+    #     # logger
+    # )
 
-    with open(args.save_file_path, "wb") as f:
-        pickle.dump({"vocab": vocab, "merges": merges}, f)
+    # with open(args.save_file_path, "wb") as f:
+    #     pickle.dump({"vocab": vocab, "merges": merges}, f)
+
+
+    # with open(args.save_file_path, "rb") as f:
+    #     loaded_data = pickle.load(f)
+
+    # print(f"{type(loaded_data)=}")
+    # print(f"{loaded_data.keys()=}")
+
+    # vocab = loaded_data['vocab']
+    # merges = loaded_data['merges']
+
+    # print(f"type(vocab): {type(vocab)}")
+    # print(f"type(merges): {type(merges)}")
+    # print(f"vocab len: {len(vocab)}")
+    # print(f"num merges: {len(merges)}")
 
 
 if __name__ == "__main__":
