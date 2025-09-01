@@ -11,6 +11,13 @@ from torch import Tensor
 
 from cs336_basics.tokenization.tokenization_main import bpeTrainingFunction
 from cs336_basics.tokenization.tokenizer import Tokenizer
+from cs336_basics.transformers.transformers import (
+    LinearModule,
+    EmbeddingModule,
+    RootMeanSquareLayerNormalizationModule,
+    FFN,
+
+)
 
 
 def run_linear(
@@ -32,7 +39,11 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    linear_layer = LinearModule(d_in, d_out)
+    linear_layer.load_state_dict(
+        {"weight": weights}
+    )
+    return linear_layer(in_features)
 
 
 def run_embedding(
@@ -53,8 +64,11 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    embedding_layer = EmbeddingModule(vocab_size, d_model)
+    embedding_layer.load_state_dict(
+        {"weight": weights}
+    )
+    return embedding_layer(token_ids)
 
 
 def run_swiglu(
@@ -86,7 +100,14 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+
+    ffn = FFN(d_model, d_ff)
+    ffn.load_state_dict({
+        "w1.weight": w1_weight,
+        "w2.weight": w2_weight,
+        "w3.weight": w3_weight,
+    })
+    return ffn(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -381,7 +402,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rmsnorm = RootMeanSquareLayerNormalizationModule(d_model, eps)
+    rmsnorm.load_state_dict({"weight": weights})
+    return rmsnorm(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
