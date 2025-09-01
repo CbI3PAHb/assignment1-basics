@@ -59,8 +59,8 @@ def test():
         #
         # Tests
         #
-
-        TASKS = [(mul, (i, 7)) for i in range(10)] + [(plus, (i, 8)) for i in range(10)]
+        N_ITERS = 10
+        TASKS = [(mul, (i, 7)) for i in range(N_ITERS)] + [(plus, (i, 8)) for i in range(N_ITERS)]
 
         results = [pool.apply_async(calculate, t) for t in TASKS]
         imap_it = pool.imap(calculatestar, TASKS)
@@ -101,21 +101,21 @@ def test():
             raise AssertionError("expected ZeroDivisionError")
 
         try:
-            print(pool.map(f, list(range(10))))
+            print(pool.map(f, list(range(N_ITERS))))
         except ZeroDivisionError:
             print("\tGot ZeroDivisionError as expected from pool.map()")
         else:
             raise AssertionError("expected ZeroDivisionError")
 
         try:
-            print(list(pool.imap(f, list(range(10)))))
+            print(list(pool.imap(f, list(range(N_ITERS)))))
         except ZeroDivisionError:
             print("\tGot ZeroDivisionError as expected from list(pool.imap())")
         else:
             raise AssertionError("expected ZeroDivisionError")
 
-        it = pool.imap(f, list(range(10)))
-        for i in range(10):
+        it = pool.imap(f, list(range(N_ITERS)))
+        for i in range(N_ITERS):
             try:
                 x = next(it)
             except ZeroDivisionError:
@@ -127,7 +127,7 @@ def test():
                 if i == 5:
                     raise AssertionError("expected ZeroDivisionError")
 
-        assert i == 9
+        assert i == N_ITERS - 1
         print("\tGot ZeroDivisionError as expected from IMapIterator.next()")
         print()
 
