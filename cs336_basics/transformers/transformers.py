@@ -1,7 +1,17 @@
+from __future__ import annotations
+
+import functools
+import json
+import logging
+import math
+import os
+import einops
+import einx
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import einops
+from torch import Tensor
+from jaxtyping import Float, Bool, Int
 
 
 # uv run pytest -k test_linear
@@ -77,6 +87,11 @@ def SiLU(x: torch.Tensor):
     return x * torch.sigmoid(x)
 
 
+def softmax(x: torch.Tensor, dim: int = -1):
+    x = x - torch.max(x, dim=dim, keepdim=True).values
+    exp = torch.exp(x)
+    return exp / torch.sum(exp, dim=dim, keepdim=True)
+
 class FFN(nn.Module):
     def __init__(
         self,
@@ -102,3 +117,44 @@ class FFN(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.w2(SiLU(self.w1(x)) * self.w3(x))
         return x
+
+
+class RoPE(nn.Module):
+    def __init__(
+        self,
+        theta: float,
+        d_k: int,
+        max_seq_len: int,
+        device: torch.device | None = None
+    ):
+        super().__init__()
+        self.theta = theta
+        self.d_k = d_k
+        self.max_seq_len = max_seq_len
+
+        seq_dim = torch.arange(0, self.max_seq_len, dtype=torch.float32, device=device)
+        inv_freqs = theta ** -(torch.arange(0, self.d_k, 2, dtype=torch.float32, device=device) / self.d_k)
+        freqs = einops.einsum(seq_dim, inv_freqs, "i, j -> i j")
+        
+        self.register_buffer("cos", freqs.cos(), persistent=False)
+        self.register_buffer("sin", freqs.sin(), persistent=False)
+
+    def forward(self, x: Float[Tensor, " ... seq d"], pos_ids: Int[Tensor, " ... seq"]) -> Float[Tensor, " ... seq d"]:
+        # input (..., seq_len, d_k)
+        # output (..., seq_len, d_k)
+        # einops.einsum()
+        seq_len = x.shape[-2]
+        if seq_len > self.max_seq_len:
+             raise ValueError(
+                f"Sequence len = ({seq_len}) is greater than max seq len = ({self.max_seq_len})."
+             )
+        sin = self.sin[pos_ids, :]
+        cos = self.cos[pos_ids, :]
+
+        x1, x2 = einops.rearrange(x, "... (half_d_model x1x2) -> x1x2 ... half_d_model", x1x2=2)
+        x1_rot = x1 * cos - x2 * sin
+        x2_rot = x1 * sin + x2 * cos
+
+        return einx.rearrange('... x_half, ... x_half -> ... (x_half (1 + 1))', x1_rot, x2_rot).contiguous()
+
+
