@@ -12,15 +12,16 @@ from torch import Tensor
 from cs336_basics.tokenization.tokenization_main import bpeTrainingFunction
 from cs336_basics.tokenization.tokenizer import Tokenizer
 from cs336_basics.transformers.transformers import (
-    LinearModule,
-    EmbeddingModule,
-    RootMeanSquareLayerNormalizationModule,
     FFN,
-    RoPE,
-    softmax,
-    scaled_dot_product_attention,
+    EmbeddingModule,
+    LinearModule,
     MultiHeadSelfAttention,
-
+    RootMeanSquareLayerNormalizationModule,
+    RoPE,
+    TransformerBlock,
+    TransformerLM,
+    scaled_dot_product_attention,
+    softmax,
 )
 
 
@@ -44,9 +45,7 @@ def run_linear(
     """
 
     linear_layer = LinearModule(d_in, d_out)
-    linear_layer.load_state_dict(
-        {"weight": weights}
-    )
+    linear_layer.load_state_dict({"weight": weights})
     return linear_layer(in_features)
 
 
@@ -69,9 +68,7 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
     embedding_layer = EmbeddingModule(vocab_size, d_model)
-    embedding_layer.load_state_dict(
-        {"weight": weights}
-    )
+    embedding_layer.load_state_dict({"weight": weights})
     return embedding_layer(token_ids)
 
 
@@ -106,11 +103,13 @@ def run_swiglu(
     # swiglu.w3.weight.data = w3_weight
 
     ffn = FFN(d_model, d_ff)
-    ffn.load_state_dict({
-        "w1.weight": w1_weight,
-        "w2.weight": w2_weight,
-        "w3.weight": w3_weight,
-    })
+    ffn.load_state_dict(
+        {
+            "w1.weight": w1_weight,
+            "w2.weight": w2_weight,
+            "w3.weight": w3_weight,
+        }
+    )
     return ffn(in_features)
 
 
@@ -167,10 +166,14 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     mhsa = MultiHeadSelfAttention(d_model, num_heads)
-    mhsa.load_state_dict({
-        "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
-        "w_o.weight": o_proj_weight,
-    })
+    mhsa.load_state_dict(
+        {
+            "w_qkv.weight": torch.cat(
+                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
+            ),
+            "output_proj.weight": o_proj_weight,
+        }
+    )
     return mhsa(in_features)
 
 
@@ -212,10 +215,14 @@ def run_multihead_self_attention_with_rope(
         implementation with the given QKV projection weights and input features.
     """
     mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
-    mhsa.load_state_dict({
-        "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
-        "w_o.weight": o_proj_weight,
-    })
+    mhsa.load_state_dict(
+        {
+            "w_qkv.weight": torch.cat(
+                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
+            ),
+            "output_proj.weight": o_proj_weight,
+        }
+    )
     return mhsa(in_features, token_positions)
 
 
@@ -312,7 +319,21 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+
+    def transform_state_dict(state_dict):
+        attn_proj = ["attn.q_proj.weight", "attn.k_proj.weight", "attn.v_proj.weight"]
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k not in attn_proj:
+                new_state_dict[k] = v
+        new_state_dict["attn.w_qkv.weight"] = torch.cat(
+            [state_dict[t] for t in attn_proj]
+        )
+        return new_state_dict
+
+    transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
+    transformer_block.load_state_dict(transform_state_dict(weights))
+    return transformer_block(in_features)
 
 
 def run_transformer_lm(
@@ -394,7 +415,50 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    model = TransformerLM(
+        vocab_size,
+        context_length,
+        d_model,
+        num_layers,
+        num_heads,
+        d_ff,
+        rope_theta,
+    )
+
+    def transform_state_dict(source_weights: dict[str, Tensor]) -> dict[str, Tensor]:
+        """
+        Converts the reference state_dict to match our model's architecture.
+        Specifically, it combines the separate q_proj, k_proj, and v_proj
+        weights into a single w_qkv weight matrix for each attention layer.
+        """
+        target_state_dict = {}
+
+        # 1. Сначала скопируем все веса, которые не требуют преобразования.
+        # Мы пропустим q_proj, k_proj, v_proj, так как обработаем их отдельно.
+        for key, value in source_weights.items():
+            if "attn.q_proj" in key or "attn.k_proj" in key or "attn.v_proj" in key:
+                continue
+            target_state_dict[key] = value
+
+        # 2. Теперь в цикле по слоям обработаем специальный случай с Q, K, V.
+        for i in range(num_layers):
+            # Извлекаем отдельные веса Q, K, V для i-го слоя из исходного словаря.
+            q_w = source_weights[f"layers.{i}.attn.q_proj.weight"]
+            k_w = source_weights[f"layers.{i}.attn.k_proj.weight"]
+            v_w = source_weights[f"layers.{i}.attn.v_proj.weight"]
+
+            # Объединяем их в одну матрицу по первому измерению (out_features).
+            # (d_model, d_model) + (d_model, d_model) + (d_model, d_model) -> (3 * d_model, d_model)
+            w_qkv = torch.cat([q_w, k_w, v_w], dim=0)
+
+            # Записываем объединенный тензор в целевой словарь с правильным ключом.
+            target_state_dict[f"layers.{i}.attn.w_qkv.weight"] = w_qkv
+
+        return target_state_dict
+
+    state_dict = transform_state_dict(weights)
+    model.load_state_dict(state_dict)
+    return model(in_indices)
 
 
 def run_rmsnorm(
