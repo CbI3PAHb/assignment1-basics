@@ -87,10 +87,6 @@ def SiLU(x: torch.Tensor):
     return x * torch.sigmoid(x)
 
 
-def softmax(x: torch.Tensor, dim: int = -1):
-    x = x - torch.max(x, dim=dim, keepdim=True).values
-    exp = torch.exp(x)
-    return exp / torch.sum(exp, dim=dim, keepdim=True)
 
 class FFN(nn.Module):
     def __init__(
@@ -139,7 +135,11 @@ class RoPE(nn.Module):
         self.register_buffer("cos", freqs.cos(), persistent=False)
         self.register_buffer("sin", freqs.sin(), persistent=False)
 
-    def forward(self, x: Float[Tensor, " ... seq d"], pos_ids: Int[Tensor, " ... seq"]) -> Float[Tensor, " ... seq d"]:
+    def forward(
+        self, 
+        x: Float[Tensor, " ... seq d"], 
+        pos_ids: Int[Tensor, " ... seq"]
+    ) -> Float[Tensor, " ... seq d"]:
         # input (..., seq_len, d_k)
         # output (..., seq_len, d_k)
         # einops.einsum()
@@ -158,3 +158,101 @@ class RoPE(nn.Module):
         return einx.rearrange('... x_half, ... x_half -> ... (x_half (1 + 1))', x1_rot, x2_rot).contiguous()
 
 
+def softmax(x: torch.Tensor, dim: int = -1):
+    x = x - torch.max(x, dim=dim, keepdim=True).values
+    exp = torch.exp(x)
+    return exp / torch.sum(exp, dim=dim, keepdim=True)
+
+
+def scaled_dot_product_attention(
+    q: Float[Tensor, "... seq_len d_k"],
+    k: Float[Tensor, "... seq_len d_k"],
+    v: Float[Tensor, "... seq_len d_v"],
+    mask: Bool[Tensor, "seq_len seq_len"] | None = None
+):
+    o = einops.einsum(q, k, "... q_seq_len d_k, ... k_seq_len d_k -> ... q_seq_len k_seq_len")
+    o = o / q.shape[-1] ** 0.5
+
+    if mask is not None:
+        mask = torch.zeros_like(mask, dtype=q.dtype).masked_fill_(~mask, -torch.inf)
+        o = o + mask
+
+    p = softmax(o)
+    return einops.einsum(p, v, "... q_seq_len k_seq_len, ... k_seq_len d_v -> ... q_seq_len d_v")
+
+
+# class MultiHeadSelfAttention(nn.Module):
+#     def __init__(self, d_model: int, num_heads: int):
+#         # batch
+#         # seq_len_query
+#         # seq_len_key
+#         # d_model, embedding_dim
+#         # head_dim
+#         # n_heads_query
+#         # n_heads_key_value
+#         # gqa_factor = n_heads_query // n_heads_key_value
+#         super().__init__()
+#         self.d_model = d_model
+#         self.n_heads = num_heads
+#         self.head_dim = self.d_model // self.n_heads
+
+#         self.w_q = LinearModule(d_model, self.n_heads * self.head_dim)
+#         self.w_k = LinearModule(d_model, self.n_heads * self.head_dim)
+#         self.w_v = LinearModule(d_model, self.n_heads * self.head_dim)
+#         self.w_o = LinearModule(self.n_heads * self.head_dim, d_model)
+
+#     def forward(self, x: Float[Tensor, "... seq_len d_model"]):
+#         q = einops.rearrange(self.w_q(x), "... seq_len (n_heads head_dim) -> n_heads ... seq_len head_dim", n_heads=self.n_heads)
+#         k = einops.rearrange(self.w_k(x), "... seq_len (n_heads head_dim) -> n_heads ... seq_len head_dim", n_heads=self.n_heads)
+#         v = einops.rearrange(self.w_v(x), "... seq_len (n_heads head_dim) -> n_heads ... seq_len head_dim", n_heads=self.n_heads)
+#         seq_len = x.shape[-2]
+#         mask = torch.triu(torch.ones(size=(seq_len, seq_len), dtype=torch.bool)).T
+#         a = scaled_dot_product_attention(q, k, v, mask)
+#         a = einops.rearrange(a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)")
+#         return self.w_o(a)
+
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+    ):
+        # batch
+        # seq_len_query
+        # seq_len_key
+        # d_model, embedding_dim
+        # head_dim
+        # n_heads_query
+        # n_heads_key_value
+        # gqa_factor = n_heads_query // n_heads_key_value
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = num_heads
+        self.head_dim = self.d_model // self.n_heads
+        self.w_qkv = LinearModule(d_model, 3 * self.n_heads * self.head_dim)
+        self.w_o = LinearModule(self.n_heads * self.head_dim, d_model)
+        self.rope = RoPE(theta=theta, d_k=self.head_dim, max_seq_len=max_seq_len) if theta else None
+
+    def forward(
+            self,
+            x: Float[Tensor, "... seq_len d_model"], 
+            token_positions: Int[Tensor, " ... sequence_length"] | None = None,
+        ):
+        q, k, v = einops.rearrange(
+            self.w_qkv(x),
+            "... seq_len (qkv n_heads head_size) -> qkv n_heads ... seq_len head_size",
+            qkv=3,
+            n_heads=self.n_heads,
+        )
+        if self.rope is not None:
+            q = self.rope(q, token_positions)
+            k = self.rope(k, token_positions)
+
+        seq_len = x.shape[-2]
+        mask = torch.triu(torch.ones(size=(seq_len, seq_len), dtype=torch.bool)).T
+        a = scaled_dot_product_attention(q, k, v, mask)
+        a = einops.rearrange(a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)")
+        return self.w_o(a) 
