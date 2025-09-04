@@ -3,10 +3,19 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 
-from .adapters import (run_embedding, run_linear, run_multihead_self_attention,
-                       run_multihead_self_attention_with_rope, run_rmsnorm,
-                       run_rope, run_scaled_dot_product_attention, run_silu,
-                       run_swiglu, run_transformer_block, run_transformer_lm)
+from .adapters import (
+    run_embedding,
+    run_linear,
+    run_multihead_self_attention,
+    run_multihead_self_attention_with_rope,
+    run_rmsnorm,
+    run_rope,
+    run_scaled_dot_product_attention,
+    run_silu,
+    run_swiglu,
+    run_transformer_block,
+    run_transformer_lm,
+)
 
 
 def test_linear(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff):

@@ -272,7 +272,11 @@ def create_new_byte_string(
     byte_string_parts = []
     i = 0
     while i < len(byte_string):
-        if i + 1 < len(byte_string) and byte_string[i] == most_frequent_pair[0] and byte_string[i + 1] == most_frequent_pair[1]:
+        if (
+            i + 1 < len(byte_string)
+            and byte_string[i] == most_frequent_pair[0]
+            and byte_string[i + 1] == most_frequent_pair[1]
+        ):
             byte_string_parts.append(byte_string[i] + byte_string[i + 1])
             i += 2
         else:
@@ -338,11 +342,11 @@ def bpeTrainingFunction(
     # 4. Compute BPE merges
     logger.info("Start training tokenizer")
 
-    merges                  : list[tuple[bytes, bytes]]           = list()
-    pair_frequencies        : dict[tuple[bytes, bytes], int]      = dict()
-    pair_of_tokens_to_index : dict[tuple[bytes, bytes], set[int]] = dict()
-    word_index_to_word      : dict[int, tuple[bytes]]             = dict()
-    word_index_to_frequency : dict[int, int]                      = dict()
+    merges: list[tuple[bytes, bytes]] = list()
+    pair_frequencies: dict[tuple[bytes, bytes], int] = dict()
+    pair_of_tokens_to_index: dict[tuple[bytes, bytes], set[int]] = dict()
+    word_index_to_word: dict[int, tuple[bytes]] = dict()
+    word_index_to_frequency: dict[int, int] = dict()
 
     for byte_string, frequency in byte_string_frequencies.items():
         for pair in zip(byte_string, byte_string[1:]):
@@ -414,7 +418,9 @@ def bpeTrainingFunction(
             frequency: int = word_index_to_frequency[word_index]
 
             # forming new word
-            new_byte_string = create_new_byte_string(current_byte_string, most_frequent_pair)
+            new_byte_string = create_new_byte_string(
+                current_byte_string, most_frequent_pair
+            )
 
             for pair in set(zip(current_byte_string, current_byte_string[1:])):
                 pair_of_tokens_to_index[pair].remove(word_index)
@@ -508,7 +514,6 @@ def main():
 
     # with open(args.save_file_path, "wb") as f:
     #     pickle.dump({"vocab": vocab, "merges": merges}, f)
-
 
     # with open(args.save_file_path, "rb") as f:
     #     loaded_data = pickle.load(f)
