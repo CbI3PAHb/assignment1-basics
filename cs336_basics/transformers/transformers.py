@@ -307,3 +307,14 @@ class TransformerLM(nn.Module):
         hidden_state = self.ln_final(hidden_state)
         logits = self.lm_head(hidden_state)
         return logits
+ 
+
+def cross_entropy_loss(
+    logits: Float[Tensor, "... seq_len vocab_size"],
+    targets: Int[Tensor, "... seq_len"]
+):
+    # -log(softmax(logits)) = -x_correct + log(sum(exp(x)))
+    log_sum_exp_logits = einx.logsumexp("... vocab_size -> ...", logits)
+    selected_logits = einx.get_at("... seq_len [vocab_size], ... seq_len -> ... seq_len", logits, targets)
+    loss = -selected_logits + log_sum_exp_logits
+    return loss.mean()

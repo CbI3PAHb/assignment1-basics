@@ -22,6 +22,8 @@ from cs336_basics.transformers.transformers import (
     TransformerLM,
     scaled_dot_product_attention,
     softmax,
+    cross_entropy_loss,
+    
 )
 
 
@@ -554,7 +556,7 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    return cross_entropy_loss(inputs, targets)
 
 
 def run_gradient_clipping(
