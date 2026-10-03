@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 
 dataset_path="${repo_root}/data/owt_train.txt"
-output_dir="${repo_root}/data/tokenizers/owt_train"
+output_dir="${repo_root}/artifacts/tokenizers/owt_train"
 
 cd -- "$repo_root"
 

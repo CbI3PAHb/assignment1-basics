@@ -4,5 +4,6 @@
         "titleBar.activeForeground": "#E8E8E8",
         "activityBar.background": "#5C2626",
         "activityBar.foreground": "#E8E8E8"
-    }
+    },
+    "workbench.panel.defaultLocation": "right"
 }

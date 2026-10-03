@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 
 dataset_path="${repo_root}/data/TinyStoriesV2-GPT4-train.txt"
-output_dir="${repo_root}/data/tokenizers/tinystories_train"
+output_dir="${repo_root}/artifacts/tokenizers/tinystories_train"
 
 cd -- "$repo_root"
 
