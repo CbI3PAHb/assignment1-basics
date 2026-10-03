@@ -40,10 +40,10 @@ class BPETrainer:
         special_tokens: tuple[str, ...],
         heap_after: int,
     ) -> None:
-        self.pretoken_counts = pretoken_counts
-        self.vocab_size = vocab_size
-        self.special_tokens = special_tokens
-        self.heap_after = heap_after
+        self.pretoken_counts: Counter[Pretoken] = pretoken_counts
+        self.vocab_size: int = vocab_size
+        self.special_tokens: tuple[str, ...] = special_tokens
+        self.heap_after: int = heap_after
 
         # TODO: initialize the mutable training state.
         self.vocabulary: Vocabulary = {
@@ -55,6 +55,19 @@ class BPETrainer:
         self.pair_frequencies: Counter[Merge] = Counter()
         self.pair_to_word_ids: dict[Merge, set[int]] = {}
 
+        for word_id, (word, frequency) in enumerate(pretoken_counts.items()):
+            # сохранить word и frequency
+            self.words[word_id] = word
+            self.word_frequencies[word_id] = frequency
+            
+            # пройти по zip(word, word[1:])
+            for pair in zip (word, word[1:]):
+                self.pair_frequencies[pair] += frequency
+                
+                if pair not in self.pair_to_word_ids:
+                    self.pair_to_word_ids[pair] = set()
+                self.pair_to_word_ids[pair].add(word_id)
+
     def train(self) -> tuple[Vocabulary, list[Merge]]:
         """Run merge iterations and append special tokens.
 
@@ -62,7 +75,8 @@ class BPETrainer:
             Initialize pair indexes, execute at most the requested number of
             merges, and return the complete vocabulary and merge list.
         """
-        raise NotImplementedError
+
+        return self.vocabulary, self.merges
 
     def _select_pair(self, merge_iteration: int) -> Merge:
         """Choose the highest-frequency pair with the required tie-break.
@@ -109,7 +123,6 @@ def _validate_training_arguments(
 
     if len(special_tokens) == 0:
         raise ValueError("at least one special token is required")
-
 
 
 def train_bpe(
