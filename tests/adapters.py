@@ -9,7 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.tokenization.tokenization_main import bpeTrainingFunction
+from cs336_basics.tokenization.train_bpe import train_bpe
 from cs336_basics.tokenization.tokenizer import Tokenizer
 from cs336_basics.transformers.transformers import (
     FFN,
@@ -23,6 +23,7 @@ from cs336_basics.transformers.transformers import (
     scaled_dot_product_attention,
     softmax,
     cross_entropy_loss,
+    silu,
     
 )
 
@@ -499,7 +500,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return silu(in_features)
 
 
 def run_get_batch(
@@ -702,4 +703,4 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    return bpeTrainingFunction(input_path, vocab_size, special_tokens, **kwargs)
+    return train_bpe(input_path, vocab_size, special_tokens, **kwargs)

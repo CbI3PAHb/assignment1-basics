@@ -1,7 +1,7 @@
 """
 owt_valid
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/train_bpe.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/owt_valid.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_valid_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_valid_json_logs.json \
@@ -15,7 +15,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 owt_train
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/train_bpe.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/owt_train.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/owt_train_json_logs.json \
@@ -29,7 +29,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 tiny_stories_valid
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/train_bpe.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_valid_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_valid_json_logs.json \
@@ -42,7 +42,7 @@ python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenizatio
 
 tiny_stories_train
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tokenization_main.py \
+python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/train_bpe.py \
     --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt \
     --save-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_train_vocab.pkl \
     --json-log-file /Users/parii-artem/Documents/assignment1-basics/cs336_basics/logs/tiny_stories_train_json_logs.json \
@@ -115,7 +115,7 @@ def setup_logging(args):
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
 
-        file_handler = logging.FileHandler(args.log_file, mode="a", encoding="utf-8")
+        file_handler = logging.FileHandler(args.log_file, mode="w", encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(log_formatter)
         root_logger.addHandler(file_handler)
@@ -135,7 +135,7 @@ def setup_logging(args):
             json_logger.handlers.clear()
 
         json_file_handler = logging.FileHandler(
-            args.json_log_file, mode="a", encoding="utf-8"
+            args.json_log_file, mode="w", encoding="utf-8"
         )
         json_formatter = logging.Formatter("%(message)s")
         json_file_handler.setFormatter(json_formatter)
@@ -152,6 +152,7 @@ def parse_args():
     parser.add_argument(
         "--dataset-file-path",
         type=str,
+        required=True,
         help="Dataset file path (big .txt file).",
     )
     parser.add_argument(
@@ -286,7 +287,7 @@ def create_new_byte_string(
     return new_byte_string
 
 
-def bpeTrainingFunction(
+def train_bpe(
     input_path: str,
     vocab_size: int,
     special_tokens: list[str],
@@ -497,37 +498,25 @@ def main():
 
     setup_logging(args)
 
-    # # logger = logging.getLogger(__name__)
-    # # json_logger = logging.getLogger("bpe_json_logger")
-    # logger.info("Starting process...")
-    # logger.debug(f"Recieved arguments: {args}")
+    logger.info("Starting BPE training")
+    logger.debug("Received arguments: %s", args)
 
-    # vocab, merges = bpeTrainingFunction(
-    #     input_path=args.dataset_file_path,
-    #     vocab_size=args.vocab_size,
-    #     special_tokens=["<|endoftext|>"],
-    #     chunk_size=args.chunk_size,
-    #     n_process=args.n_process,
-    #     n_iters_to_brutforce_calculate_most_frequence_pair=3000,
-    #     # logger
-    # )
+    vocab, merges = train_bpe(
+        input_path=args.dataset_file_path,
+        vocab_size=args.vocab_size,
+        special_tokens=["<|endoftext|>"],
+        chunk_size=args.chunk_size,
+        n_process=args.n_process,
+    )
 
-    # with open(args.save_file_path, "wb") as f:
-    #     pickle.dump({"vocab": vocab, "merges": merges}, f)
+    output_directory = os.path.dirname(args.save_file_path)
+    if output_directory:
+        os.makedirs(output_directory, exist_ok=True)
 
-    # with open(args.save_file_path, "rb") as f:
-    #     loaded_data = pickle.load(f)
+    with open(args.save_file_path, "wb") as output_file:
+        pickle.dump({"vocab": vocab, "merges": merges}, output_file)
 
-    # print(f"{type(loaded_data)=}")
-    # print(f"{loaded_data.keys()=}")
-
-    # vocab = loaded_data['vocab']
-    # merges = loaded_data['merges']
-
-    # print(f"type(vocab): {type(vocab)}")
-    # print(f"type(merges): {type(merges)}")
-    # print(f"vocab len: {len(vocab)}")
-    # print(f"num merges: {len(merges)}")
+    logger.info("Saved tokenizer to %s", args.save_file_path)
 
 
 if __name__ == "__main__":

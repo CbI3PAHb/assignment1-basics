@@ -92,7 +92,7 @@ class RootMeanSquareLayerNormalizationModule(nn.Module):
         return result.to(in_dtype)
 
 
-def SiLU(x: torch.Tensor):
+def silu(x: torch.Tensor):
     return x * torch.sigmoid(x)
 
 
@@ -122,7 +122,7 @@ class FFN(nn.Module):
         return d_ffn
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.w2(SiLU(self.w1(x)) * self.w3(x))
+        x = self.w2(silu(self.w1(x)) * self.w3(x))
         return x
 
 
