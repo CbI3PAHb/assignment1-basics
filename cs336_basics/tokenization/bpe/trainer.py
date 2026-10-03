@@ -6,7 +6,10 @@ arguments, configure logging, open output files, or create worker processes.
 
 from __future__ import annotations
 
+import heapq
 import logging
+
+from dataclasses import dataclass
 from collections import Counter
 from pathlib import Path
 
@@ -17,6 +20,14 @@ Merge = tuple[Token, Token]
 Vocabulary = dict[int, Token]
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _ReverseLexPair:
+    pair: Merge
+
+    def __lt__(self, other: _ReverseLexPair) -> bool:
+        return self.pair > other.pair
 
 
 class BPETrainer:
@@ -51,13 +62,13 @@ class BPETrainer:
         self.word_frequencies: dict[int, int] = {}
         self.pair_frequencies: Counter[Merge] = Counter()
         self.pair_to_word_ids: dict[Merge, set[int]] = {}
+        self.pair_heap: list[tuple[int, _ReverseLexPair]] | None = None
 
         for word_id, (word, frequency) in enumerate(pretoken_counts.items()):
-            # сохранить word и frequency
+            # save word and frequency
             self.words[word_id] = word
             self.word_frequencies[word_id] = frequency
 
-            # пройти по zip(word, word[1:])
             for pair in zip(word, word[1:]):
                 self.pair_frequencies[pair] += frequency
 
@@ -86,7 +97,17 @@ class BPETrainer:
     def _select_pair(self, merge_iteration: int) -> Merge:
         """Choose the highest-frequency pair with the required tie-break."""
         if merge_iteration >= self.heap_after:
-            raise NotImplementedError()
+            if self.pair_heap is None:
+                self._build_pair_heap()
+
+            while self.pair_heap:
+                neg_freq, wrapped_pair = heapq.heappop(self.pair_heap)
+                pair = wrapped_pair.pair
+                freq = -neg_freq
+
+                if freq == self.pair_frequencies.get(pair):
+                    return pair
+            raise RuntimeError("pair heap contains no current entries")
         else:
             # brute_force
             return max(self.pair_frequencies, key=lambda pair: (self.pair_frequencies.get(pair, 0), pair))
@@ -95,6 +116,7 @@ class BPETrainer:
         """Apply one non-overlapping merge and update every cache invariant."""
         self.merges.append(pair)
         self.vocabulary[len(self.vocabulary)] = pair[0] + pair[1]
+        changed_pairs: set[Merge] = set()
 
         affected_word_ids = tuple(self.pair_to_word_ids[pair])
 
@@ -108,6 +130,8 @@ class BPETrainer:
 
                 if self.pair_frequencies[old_pair] == 0:
                     del self.pair_frequencies[old_pair]
+                elif self.pair_heap is not None:
+                    changed_pairs.add(old_pair)
 
             for old_pair in set(old_pairs):
                 self.pair_to_word_ids[old_pair].remove(word_id)
@@ -122,7 +146,19 @@ class BPETrainer:
                     self.pair_to_word_ids[new_pair] = set()
                 self.pair_to_word_ids[new_pair].add(word_id)
 
+                if self.pair_heap is not None:
+                    changed_pairs.add(new_pair)
+
             self.words[word_id] = new_word
+
+        if self.pair_heap is not None:
+            for changed_pair in changed_pairs:
+                freq = self.pair_frequencies.get(changed_pair)
+                if freq is not None:
+                    heapq.heappush(
+                        self.pair_heap,
+                        (-freq, _ReverseLexPair(changed_pair))
+                    )
 
     def _create_new_word(
         self,
@@ -140,6 +176,12 @@ class BPETrainer:
                 i += 1
         return tuple(new_word_parts)
 
+    def _build_pair_heap(self) -> None:
+        self.pair_heap = [
+            (-frequency, _ReverseLexPair(pair))
+            for pair, frequency in self.pair_frequencies.items()
+        ]
+        heapq.heapify(self.pair_heap)
 
 def _validate_training_arguments(
     *,

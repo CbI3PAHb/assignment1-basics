@@ -10,6 +10,11 @@ from cs336_basics.pretokenization_example import PAT
 from cs336_basics.tokenization.bpe import train_bpe
 
 
+HEAP_REGRESSION_TEXT = (
+    "becfebabeeeabacfbcbfffeccbcbbcebadbfcebbcfdcfedcedefdfac"
+)
+
+
 def _merge_pair(
     tokens: tuple[bytes, ...], pair_to_merge: tuple[bytes, bytes]
 ) -> tuple[bytes, ...]:
@@ -91,7 +96,7 @@ def _write_corpus(tmp_path: Path, text: str) -> Path:
 
 
 def test_brute_force_training_matches_reference(tmp_path: Path) -> None:
-    text = "becfebabeeeabacfbcbfffeccbcbbcebadbfcebbcfdcfedcedefdfac"
+    text = HEAP_REGRESSION_TEXT
     corpus_path = _write_corpus(tmp_path, text)
 
     expected = _reference_train_bpe(text, 330, ["<|endoftext|>"])
@@ -102,6 +107,30 @@ def test_brute_force_training_matches_reference(tmp_path: Path) -> None:
         chunk_size=1_000_000,
         n_process=1,
         heap_after=1_000,
+    )
+
+    assert actual == expected
+
+
+@pytest.mark.parametrize("heap_after", [0, 1, 5])
+def test_heap_training_matches_brute_force_reference(
+    tmp_path: Path,
+    heap_after: int,
+) -> None:
+    corpus_path = _write_corpus(tmp_path, HEAP_REGRESSION_TEXT)
+    expected = _reference_train_bpe(
+        HEAP_REGRESSION_TEXT,
+        330,
+        ["<|endoftext|>"],
+    )
+
+    actual = train_bpe(
+        corpus_path,
+        vocab_size=330,
+        special_tokens=["<|endoftext|>"],
+        chunk_size=1_000_000,
+        n_process=1,
+        heap_after=heap_after,
     )
 
     assert actual == expected

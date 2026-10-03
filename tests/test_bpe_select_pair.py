@@ -46,3 +46,21 @@ def test_select_pair_brute_force(
     selected_pair = trainer._select_pair(merge_iteration=0)
 
     assert selected_pair == expected_pair
+
+
+def test_select_pair_heap_preserves_lexicographic_tie_break() -> None:
+    trainer = BPETrainer(
+        Counter(
+            {
+                (b"a", b"b"): 2,
+                (b"a", b"c"): 2,
+            }
+        ),
+        vocab_size=270,
+        special_tokens=("<|endoftext|>",),
+        heap_after=0,
+    )
+
+    selected_pair = trainer._select_pair(merge_iteration=0)
+
+    assert selected_pair == (b"a", b"c")
