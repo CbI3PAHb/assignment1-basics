@@ -90,7 +90,7 @@ def _write_corpus(tmp_path: Path, text: str) -> Path:
     return corpus_path
 
 
-def test_heap_optimization_matches_brute_force_reference(tmp_path: Path) -> None:
+def test_brute_force_training_matches_reference(tmp_path: Path) -> None:
     text = "becfebabeeeabacfbcbfffeccbcbbcebadbfcebbcfdcfedcedefdfac"
     corpus_path = _write_corpus(tmp_path, text)
 
@@ -101,6 +101,7 @@ def test_heap_optimization_matches_brute_force_reference(tmp_path: Path) -> None
         special_tokens=["<|endoftext|>"],
         chunk_size=1_000_000,
         n_process=1,
+        heap_after=1_000,
     )
 
     assert actual == expected
@@ -144,7 +145,7 @@ def test_chunk_size_does_not_change_merges_for_custom_special_token(
         special_tokens=special_tokens,
         chunk_size=10_000,
         n_process=1,
-        n_iters_to_brutforce_calculate_most_frequence_pair=1_000,
+        heap_after=1_000,
     )
     many_chunks = train_bpe(
         corpus_path,
@@ -152,7 +153,7 @@ def test_chunk_size_does_not_change_merges_for_custom_special_token(
         special_tokens=special_tokens,
         chunk_size=1,
         n_process=1,
-        n_iters_to_brutforce_calculate_most_frequence_pair=1_000,
+        heap_after=1_000,
     )
 
     assert one_chunk == expected

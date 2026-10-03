@@ -5,8 +5,8 @@ arguments, configure logging, open output files, or create worker processes.
 """
 
 from __future__ import annotations
-import logging
 
+import logging
 from collections import Counter
 from pathlib import Path
 
@@ -45,10 +45,7 @@ class BPETrainer:
         self.special_tokens: tuple[str, ...] = special_tokens
         self.heap_after: int = heap_after
 
-        # TODO: initialize the mutable training state.
-        self.vocabulary: Vocabulary = {
-            token_id: bytes([token_id]) for token_id in range(256)
-        }
+        self.vocabulary: Vocabulary = {token_id: bytes([token_id]) for token_id in range(256)}
         self.merges: list[Merge] = []
         self.words: dict[int, Pretoken] = {}
         self.word_frequencies: dict[int, int] = {}
@@ -59,38 +56,89 @@ class BPETrainer:
             # сохранить word и frequency
             self.words[word_id] = word
             self.word_frequencies[word_id] = frequency
-            
+
             # пройти по zip(word, word[1:])
-            for pair in zip (word, word[1:]):
+            for pair in zip(word, word[1:]):
                 self.pair_frequencies[pair] += frequency
-                
+
                 if pair not in self.pair_to_word_ids:
                     self.pair_to_word_ids[pair] = set()
                 self.pair_to_word_ids[pair].add(word_id)
 
     def train(self) -> tuple[Vocabulary, list[Merge]]:
-        """Run merge iterations and append special tokens.
+        """Run merge iterations and append special tokens."""
 
-        TODO:
-            Initialize pair indexes, execute at most the requested number of
-            merges, and return the complete vocabulary and merge list.
-        """
+        num_merge_slots = self.vocab_size - len(self.special_tokens) - len(self.vocabulary)
+
+        for merge_iteration in range(num_merge_slots):
+            if not self.pair_frequencies:
+                break
+
+            pair = self._select_pair(merge_iteration)
+            self._apply_merge(pair)
+
+        for special_token in self.special_tokens:
+            token_id = len(self.vocabulary)
+            self.vocabulary[token_id] = special_token.encode("utf-8")
 
         return self.vocabulary, self.merges
 
     def _select_pair(self, merge_iteration: int) -> Merge:
-        """Choose the highest-frequency pair with the required tie-break.
-
-        TODO:
-            Use brute force before ``heap_after`` and a validated heap entry
-            afterwards. Rebuild or fail clearly if the heap contains no valid
-            entry while pair frequencies remain.
-        """
-        raise NotImplementedError
+        """Choose the highest-frequency pair with the required tie-break."""
+        if merge_iteration >= self.heap_after:
+            raise NotImplementedError()
+        else:
+            # brute_force
+            return max(self.pair_frequencies, key=lambda pair: (self.pair_frequencies.get(pair, 0), pair))
 
     def _apply_merge(self, pair: Merge) -> None:
         """Apply one non-overlapping merge and update every cache invariant."""
-        raise NotImplementedError
+        self.merges.append(pair)
+        self.vocabulary[len(self.vocabulary)] = pair[0] + pair[1]
+
+        affected_word_ids = tuple(self.pair_to_word_ids[pair])
+
+        for word_id in affected_word_ids:
+            old_word: Pretoken = self.words[word_id]
+            old_pairs: tuple[Merge, ...] = tuple(zip(old_word, old_word[1:]))
+
+            word_freq = self.word_frequencies[word_id]
+            for old_pair in old_pairs:
+                self.pair_frequencies[old_pair] -= word_freq
+
+                if self.pair_frequencies[old_pair] == 0:
+                    del self.pair_frequencies[old_pair]
+
+            for old_pair in set(old_pairs):
+                self.pair_to_word_ids[old_pair].remove(word_id)
+                if not self.pair_to_word_ids[old_pair]:
+                    del self.pair_to_word_ids[old_pair]
+
+            new_word = self._create_new_word(old_word, pair)
+
+            for new_pair in zip(new_word[:-1], new_word[1:]):
+                self.pair_frequencies[new_pair] += word_freq
+                if new_pair not in self.pair_to_word_ids:
+                    self.pair_to_word_ids[new_pair] = set()
+                self.pair_to_word_ids[new_pair].add(word_id)
+
+            self.words[word_id] = new_word
+
+    def _create_new_word(
+        self,
+        word: tuple[bytes, ...],
+        pair: Merge,
+    ) -> tuple[bytes, ...]:
+        new_word_parts = []
+        i = 0
+        while i < len(word):
+            if i + 1 < len(word) and word[i] == pair[0] and word[i + 1] == pair[1]:
+                new_word_parts.append(word[i] + word[i + 1])
+                i += 2
+            else:
+                new_word_parts.append(word[i])
+                i += 1
+        return tuple(new_word_parts)
 
 
 def _validate_training_arguments(
@@ -102,7 +150,7 @@ def _validate_training_arguments(
     heap_after: int,
 ) -> None:
     """Validate public API arguments before expensive work starts."""
-    
+
     if vocab_size < 256 + len(special_tokens):
         raise ValueError(f"vocab_size must be >= {256 + len(special_tokens)}, but got {vocab_size}")
 
