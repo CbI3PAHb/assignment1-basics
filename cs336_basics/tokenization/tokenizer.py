@@ -4,6 +4,8 @@ from typing import Iterable, Iterator, Type
 import regex as re
 from tqdm import tqdm
 
+import pickle
+from pathlib import Path
 from cs336_basics.pretokenization_example import PAT
 
 # PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -18,7 +20,7 @@ class Tokenizer:
     ):
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens = special_tokens
+        self.special_tokens: list[str] | tuple[str, ...] | None = tuple(special_tokens or ())
         self.inverse_vocab = {v: k for k, v in self.vocab.items()}
         self.pair_ranks: dict[tuple[bytes, bytes], int] = self._prepare_pair_ranks()
 
@@ -60,7 +62,8 @@ class Tokenizer:
 
         pre_tokens = []
         # first tqdm (len splitted texts)
-        for sub_text in tqdm(splitted_text):
+        # for sub_text in tqdm(splitted_text):
+        for sub_text in splitted_text:
             if self.special_tokens and sub_text in self.special_tokens:
                 pre_tokens.append((sub_text.encode("utf-8"), True))
             else:
@@ -71,7 +74,8 @@ class Tokenizer:
                     pre_tokens.append((byte_representation, False))
         res = []
         # second tqdm (n pretokens)
-        for pre_token, is_special in tqdm(pre_tokens):
+        # for pre_token, is_special in tqdm(pre_tokens):
+        for pre_token, is_special in pre_tokens:
             if is_special:
                 res.append(tuple((pre_token,)))
             else:
@@ -98,7 +102,8 @@ class Tokenizer:
 
         out = []
         # second tqdm (n pretokens -> indices)
-        for r in tqdm(res):
+        # for r in tqdm(res):
+        for r in res:
             for token in r:
                 out.append(self.inverse_vocab[token])
         return out
@@ -109,3 +114,33 @@ class Tokenizer:
 
     def decode(self, ids: list[int]) -> str:
         return b"".join([self.vocab[i] for i in ids]).decode("utf-8", errors="replace")
+
+    @classmethod
+    def from_pickle(cls, path: Path):
+        with open(path, "rb") as file:
+            payload = pickle.load(file)
+
+        return cls(
+            vocab=payload["vocab"],
+            merges=payload["merges"],
+            special_tokens=payload["special_tokens"],
+        )
+
+"""
+uv run python - <<'PY'
+import pickle
+from pathlib import Path
+from cs336_basics.tokenization.tokenizer import Tokenizer
+path = Path("/tmp/cs336-bpe-smoke/tokenizer.pkl")
+
+t = Tokenizer.from_pickle(path)
+
+text = "Мама мыла раму"
+tokens = t.encode(text)
+decoded_text = t.decode(tokens)
+
+assert text == decoded_text
+print(text == decoded_text)
+PY
+
+"""

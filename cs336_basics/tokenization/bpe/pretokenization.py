@@ -1,9 +1,9 @@
 """Parallel pre-token counting for BPE training."""
 
 from __future__ import annotations
-
 import logging
 import multiprocessing
+import tqdm
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -181,7 +181,7 @@ def count_pretokens(
     num_workers = min(n_process, len(tasks))
     freqs: Counter[Pretoken] = Counter()
 
-    for partial_count in _iter_chunk_counts(tasks, num_workers):
+    for partial_count in tqdm.tqdm(_iter_chunk_counts(tasks, num_workers), total=len(tasks)):
         freqs.update(partial_count)
 
     logger.info(

@@ -10,7 +10,7 @@ output_dir="${repo_root}/artifacts/tokenizers/tinystories_valid"
 
 cd -- "$repo_root"
 
-exec uv run python -m cs336_basics.tokenization.train_bpe \
+exec uv run python -m cs336_basics.tokenization.bpe \
     --dataset-file-path "$dataset_path" \
     --save-file-path "${output_dir}/tokenizer.pkl" \
     --json-log-file "${output_dir}/training.jsonl" \

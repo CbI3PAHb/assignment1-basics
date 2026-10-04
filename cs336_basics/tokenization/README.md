@@ -47,7 +47,7 @@ From the repository root:
 For a one-off custom run, call the Python module directly:
 
 ```bash
-uv run python -m cs336_basics.tokenization.train_bpe \
+uv run python -m cs336_basics.tokenization.bpe \
   --dataset-file-path data/my_corpus.txt \
   --save-file-path data/tokenizers/my_corpus/tokenizer.pkl \
   --json-log-file data/tokenizers/my_corpus/training.jsonl \
@@ -92,7 +92,7 @@ can be used for a one-off override:
 See all Python options without starting training:
 
 ```bash
-uv run python -m cs336_basics.tokenization.train_bpe --help
+uv run python -m cs336_basics.tokenization.bpe --help
 ```
 
 ## Why `dirname "$0"` printed different values

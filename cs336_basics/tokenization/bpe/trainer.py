@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass
 from collections import Counter
 from pathlib import Path
+from tqdm import tqdm
 
 from .pretokenization import Pretoken, count_pretokens
 
@@ -81,7 +82,7 @@ class BPETrainer:
 
         num_merge_slots = self.vocab_size - len(self.special_tokens) - len(self.vocabulary)
 
-        for merge_iteration in range(num_merge_slots):
+        for merge_iteration in tqdm(range(num_merge_slots), total=num_merge_slots):
             if not self.pair_frequencies:
                 break
 
@@ -155,10 +156,7 @@ class BPETrainer:
             for changed_pair in changed_pairs:
                 freq = self.pair_frequencies.get(changed_pair)
                 if freq is not None:
-                    heapq.heappush(
-                        self.pair_heap,
-                        (-freq, _ReverseLexPair(changed_pair))
-                    )
+                    heapq.heappush(self.pair_heap, (-freq, _ReverseLexPair(changed_pair)))
 
     def _create_new_word(
         self,
@@ -177,11 +175,10 @@ class BPETrainer:
         return tuple(new_word_parts)
 
     def _build_pair_heap(self) -> None:
-        self.pair_heap = [
-            (-frequency, _ReverseLexPair(pair))
-            for pair, frequency in self.pair_frequencies.items()
-        ]
+        self.pair_heap = [(-frequency, _ReverseLexPair(pair)) for pair, frequency in self.pair_frequencies.items()]
         heapq.heapify(self.pair_heap)
+        
+        logger.info(f"created pair heap, with len={len(self.pair_heap)}")
 
 def _validate_training_arguments(
     *,

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import pickle
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from .trainer import Merge, Vocabulary, train_bpe
 
 DEFAULT_SPECIAL_TOKEN = "<|endoftext|>"
 BPE_LOGGER_NAME = "cs336_basics.tokenization.bpe"
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -47,13 +50,8 @@ def setup_logging(
     json_log_file: Path | None,
     silent: bool,
 ) -> None:
-    """Configure logging for one CLI process.
+    """Configure logging for one CLI process."""
 
-    TODO:
-        Configure console and optional file handlers without leaking handlers
-        between repeated calls. Worker processes should not write through a
-        shared ``FileHandler``.
-    """
     bpe_logger = logging.getLogger(BPE_LOGGER_NAME)
     bpe_logger.setLevel(logging.DEBUG)
     bpe_logger.propagate = False
@@ -102,9 +100,7 @@ def setup_logging(
         if json_logger.hasHandlers():
             json_logger.handlers.clear()
 
-        json_file_handler = logging.FileHandler(
-            json_log_file, mode="w", encoding="utf-8"
-        )
+        json_file_handler = logging.FileHandler(json_log_file, mode="w", encoding="utf-8")
         json_formatter = logging.Formatter("%(message)s")
         json_file_handler.setFormatter(json_formatter)
         json_logger.addHandler(json_file_handler)
@@ -126,13 +122,28 @@ def save_tokenizer(
         Save vocabulary, merges, and special tokens to a temporary file, then
         replace ``output_path`` atomically.
     """
-    raise NotImplementedError
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = output_path.with_name(f".{output_path.name}.tmp")
+
+    payload = {"vocab": vocabulary, "merges": merges, "special_tokens": special_tokens}
+
+    try:
+        with temp_path.open("wb") as temp_file:
+            pickle.dump(payload, temp_file)
+
+        temp_path.replace(output_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+    logger.info("Saved tokenizer to %s", output_path)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     """Run the CLI pipeline: parse, configure, train, and save."""
     args = parse_args(argv)
     special_tokens = tuple(args.special_tokens or [DEFAULT_SPECIAL_TOKEN])
+
+    logger.info("Starting BPE training")
 
     setup_logging(
         log_file=args.log_file,
@@ -153,3 +164,5 @@ def main(argv: Sequence[str] | None = None) -> None:
         merges=merges,
         special_tokens=special_tokens,
     )
+
+    logger.info("BPE training done!")
