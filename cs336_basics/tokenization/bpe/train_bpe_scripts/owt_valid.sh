@@ -3,7 +3,7 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd -- "${script_dir}/../.." && pwd)"
+repo_root="$(cd -- "${script_dir}/../../../.." && pwd)"
 
 dataset_path="${repo_root}/data/owt_valid.txt"
 output_dir="${OUTPUT_DIR:-${repo_root}/artifacts/tokenizers/owt_valid}"

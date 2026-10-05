@@ -3,11 +3,11 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd -- "${script_dir}/../.." && pwd)"
+repo_root="$(cd -- "${script_dir}/../../../.." && pwd)"
 
-dataset_path="${repo_root}/data/owt_train.txt"
-output_dir="${OUTPUT_DIR:-${repo_root}/artifacts/tokenizers/owt_train}"
-n_process="${N_PROCESS:-16}"
+dataset_path="${repo_root}/data/TinyStoriesV2-GPT4-train.txt"
+output_dir="${OUTPUT_DIR:-${repo_root}/artifacts/tokenizers/tinystories_train}"
+n_process="${N_PROCESS:-8}"
 vocab_size="${VOCAB_SIZE:-32000}"
 heap_after="${HEAP_AFTER:-500}"
 

@@ -38,10 +38,10 @@ the Python module through `uv run`.
 From the repository root:
 
 ```bash
-./cs336_basics/tokenization/tinystories_valid.sh
-./cs336_basics/tokenization/tinystories_train.sh
-./cs336_basics/tokenization/owt_valid.sh
-./cs336_basics/tokenization/owt_train.sh
+./cs336_basics/tokenization/bpe/train_bpe_scripts/tinystories_valid.sh
+./cs336_basics/tokenization/bpe/train_bpe_scripts/tinystories_train.sh
+./cs336_basics/tokenization/bpe/train_bpe_scripts/owt_valid.sh
+./cs336_basics/tokenization/bpe/train_bpe_scripts/owt_train.sh
 ```
 
 For a one-off custom run, call the Python module directly:
