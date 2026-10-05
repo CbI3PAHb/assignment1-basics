@@ -4,6 +4,7 @@ uv run python -m cs336_basics.tokenization.encode_dataset \
     --input-path data/TinyStoriesV2-GPT4-train.txt \
     --output-path tokenized_datasets/tinystories_train.bin
 """
+
 import numpy as np
 
 from collections.abc import Iterator
@@ -41,7 +42,7 @@ def encode_dataset(
     write_buffer_size: int,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     if write_buffer_size <= 0:
         raise ValueError("write_buffer_size must be positive")
 
@@ -51,11 +52,11 @@ def encode_dataset(
     token_count = 0
     token_buffer: list[int] = []
 
-    with open(input_path, "r", encoding='utf-8') as input_file:
+    with open(input_path, "r", encoding="utf-8") as input_file:
         with open(output_path, "wb") as output_file:
             documents = iter_documents(input_file, document_separator)
             token_ids = tokenizer.encode_iterable(documents)
-                
+
             for token_id in token_ids:
                 token_buffer.append(token_id)
                 token_count += 1

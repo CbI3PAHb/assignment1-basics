@@ -134,9 +134,7 @@ def setup_logging(args):
         if json_logger.hasHandlers():
             json_logger.handlers.clear()
 
-        json_file_handler = logging.FileHandler(
-            args.json_log_file, mode="w", encoding="utf-8"
-        )
+        json_file_handler = logging.FileHandler(args.json_log_file, mode="w", encoding="utf-8")
         json_formatter = logging.Formatter("%(message)s")
         json_file_handler.setFormatter(json_formatter)
         json_logger.addHandler(json_file_handler)
@@ -190,13 +188,11 @@ def parse_args():
         default=False,
         help="path to save JSON-logs (for parsing and create graphs).",
     )
-    parser.add_argument(
-        "--silent", action="store_true", help="Disable output logs into console."
-    )
+    parser.add_argument("--silent", action="store_true", help="Disable output logs into console.")
     return parser.parse_args()
 
 
-def calculate_num_chunks(file_path, desired_chunk_size: int = None):
+def calculate_num_chunks(file_path, desired_chunk_size: int | None = None):
     logger.debug(f"Calculating num chunks for file: {file_path}")
 
     try:
@@ -227,9 +223,7 @@ def _pretokenize(args):
     if not special_tokens:
         raise RuntimeError(f"There is no special tokens: {special_tokens}")
 
-    logger.debug(
-        f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: reading chunk"
-    )
+    logger.debug(f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: reading chunk")
 
     byte_string_frequencies: dict[tuple[bytes], int] = dict()
 
@@ -244,9 +238,7 @@ def _pretokenize(args):
 
     sub_chunks = re.split(split_pattern, chunk)
 
-    logger.debug(
-        f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: pretokenization process..."
-    )
+    logger.debug(f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: pretokenization process...")
     # logger.debug(sub_chunks)
     # logger.debug(f"{split_pattern=}")
 
@@ -254,15 +246,9 @@ def _pretokenize(args):
         if not sub_chunk or (sub_chunk in special_tokens):
             continue
         for pre_token in re.finditer(PAT, sub_chunk):
-            byte_representation = tuple(
-                bytes([b]) for b in pre_token.group().encode("utf-8")
-            )
-            byte_string_frequencies[byte_representation] = (
-                byte_string_frequencies.get(byte_representation, 0) + 1
-            )
-    logger.info(
-        f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: pretokenization process done"
-    )
+            byte_representation = tuple(bytes([b]) for b in pre_token.group().encode("utf-8"))
+            byte_string_frequencies[byte_representation] = byte_string_frequencies.get(byte_representation, 0) + 1
+    logger.info(f"{multiprocessing.current_process().name} - {start_byte=}, {end_byte=}: pretokenization process done")
     return byte_string_frequencies
 
 
@@ -325,9 +311,7 @@ def train_bpe(
 
     with multiprocessing.Pool(n_process) as pool:
         TASKS = []
-        for i, (start_byte, end_byte) in enumerate(
-            zip(chunk_boundaries[:-1], chunk_boundaries[1:])
-        ):
+        for i, (start_byte, end_byte) in enumerate(zip(chunk_boundaries[:-1], chunk_boundaries[1:])):
             args = (input_path, start_byte, end_byte, special_tokens, logger)
             TASKS.append(args)
 
@@ -337,7 +321,7 @@ def train_bpe(
             for k, v in x.items():
                 byte_string_frequencies[k] = byte_string_frequencies.get(k, 0) + v
 
-    logger.info(f"Done pretokenization")
+    logger.info("Done pretokenization")
     end_pretokenization_process_time = time.time()
 
     # 4. Compute BPE merges
@@ -365,9 +349,7 @@ def train_bpe(
     logger.debug(HEADER)
 
     # for new_token_index in range(initial_vocab_size, vocab_size - len(special_tokens)):
-    for new_token_index in tqdm.tqdm(
-        range(initial_vocab_size, vocab_size - len(special_tokens))
-    ):
+    for new_token_index in tqdm.tqdm(range(initial_vocab_size, vocab_size - len(special_tokens))):
         start_iteration = time.time()
         if not pair_frequencies:
             break
@@ -381,15 +363,10 @@ def train_bpe(
         # logger.debug(f"{len(word_index_to_frequency)=}")
 
         if new_token_index < n_iters_to_brutforce_calculate_most_frequence_pair:
-            most_frequent_pair = max(
-                pair_frequencies, key=lambda x: (pair_frequencies.get(x, 0), x)
-            )
+            most_frequent_pair = max(pair_frequencies, key=lambda x: (pair_frequencies.get(x, 0), x))
         else:
             if new_token_index == n_iters_to_brutforce_calculate_most_frequence_pair:
-                pq = [
-                    (-freq, ReverseLexOrderPair(pair))
-                    for pair, freq in pair_frequencies.items()
-                ]
+                pq = [(-freq, ReverseLexOrderPair(pair)) for pair, freq in pair_frequencies.items()]
                 heapq.heapify(pq)
             while pq:
                 # potential most frequency pair - O(log N)
@@ -408,9 +385,7 @@ def train_bpe(
         merges.append(most_frequent_pair)
         vocabulary[new_token_index] = new_byte_token
 
-        word_indexes_where_new_byte_pair_exists: list[int] = list(
-            pair_of_tokens_to_index[most_frequent_pair]
-        )
+        word_indexes_where_new_byte_pair_exists: list[int] = list(pair_of_tokens_to_index[most_frequent_pair])
         mean_current_byte_string_len = 0
 
         for word_index in word_indexes_where_new_byte_pair_exists:
@@ -419,9 +394,7 @@ def train_bpe(
             frequency: int = word_index_to_frequency[word_index]
 
             # forming new word
-            new_byte_string = create_new_byte_string(
-                current_byte_string, most_frequent_pair
-            )
+            new_byte_string = create_new_byte_string(current_byte_string, most_frequent_pair)
 
             for pair in set(zip(current_byte_string, current_byte_string[1:])):
                 pair_of_tokens_to_index[pair].remove(word_index)
@@ -432,12 +405,8 @@ def train_bpe(
                 pair_frequencies[pair] -= frequency
                 if pair_frequencies[pair] == 0:
                     del pair_frequencies[pair]
-                elif (
-                    new_token_index > n_iters_to_brutforce_calculate_most_frequence_pair
-                ):
-                    heapq.heappush(
-                        pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair))
-                    )
+                elif new_token_index > n_iters_to_brutforce_calculate_most_frequence_pair:
+                    heapq.heappush(pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair)))
 
             for pair in zip(new_byte_string, new_byte_string[1:]):
                 pair_frequencies[pair] = pair_frequencies.get(pair, 0) + frequency
@@ -445,15 +414,11 @@ def train_bpe(
                     pair_of_tokens_to_index[pair] = set()
                 pair_of_tokens_to_index[pair].add(word_index)
                 if new_token_index > n_iters_to_brutforce_calculate_most_frequence_pair:
-                    heapq.heappush(
-                        pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair))
-                    )
+                    heapq.heappush(pq, (-pair_frequencies[pair], ReverseLexOrderPair(pair)))
 
             word_index_to_word[word_index] = new_byte_string
 
-        mean_current_byte_string_len /= (
-            len(word_indexes_where_new_byte_pair_exists) or 1
-        )
+        mean_current_byte_string_len /= len(word_indexes_where_new_byte_pair_exists) or 1
 
         log_data = {
             "iteration": new_token_index,
@@ -483,12 +448,8 @@ def train_bpe(
         vocabulary[len(vocabulary)] = special_token.encode("utf-8")
 
     end_training_bpe_time = time.time()
-    logger.info(
-        f"Pretokenization taken {end_pretokenization_process_time - start_function_time:.3f} sec"
-    )
-    logger.info(
-        f"Train BPE tokenizer taken {end_training_bpe_time - end_pretokenization_process_time:.3f} sec"
-    )
+    logger.info(f"Pretokenization taken {end_pretokenization_process_time - start_function_time:.3f} sec")
+    logger.info(f"Train BPE tokenizer taken {end_training_bpe_time - end_pretokenization_process_time:.3f} sec")
     logger.info(f"Total time taken: {end_training_bpe_time - start_function_time:.3f}")
     return vocabulary, merges
 

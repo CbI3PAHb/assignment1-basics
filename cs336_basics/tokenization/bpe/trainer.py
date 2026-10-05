@@ -177,8 +177,9 @@ class BPETrainer:
     def _build_pair_heap(self) -> None:
         self.pair_heap = [(-frequency, _ReverseLexPair(pair)) for pair, frequency in self.pair_frequencies.items()]
         heapq.heapify(self.pair_heap)
-        
+
         logger.info(f"created pair heap, with len={len(self.pair_heap)}")
+
 
 def _validate_training_arguments(
     *,

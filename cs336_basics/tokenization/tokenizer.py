@@ -54,7 +54,7 @@ class Tokenizer:
         # 3. Pre-tokenization
         if self.special_tokens:
             sorted_special_tokens = sorted(self.special_tokens, key=len, reverse=True)
-            split_pattern = f"({ '|'.join(map(re.escape, sorted_special_tokens)) })"
+            split_pattern = f"({'|'.join(map(re.escape, sorted_special_tokens))})"
             splitted_text = re.split(split_pattern, text)
 
         else:
@@ -68,16 +68,14 @@ class Tokenizer:
                 pre_tokens.append((sub_text.encode("utf-8"), True))
             else:
                 for pre_token in re.finditer(PAT, sub_text):
-                    byte_representation = tuple(
-                        bytes([b]) for b in pre_token.group().encode("utf-8")
-                    )
+                    byte_representation = tuple(bytes([b]) for b in pre_token.group().encode("utf-8"))
                     pre_tokens.append((byte_representation, False))
         res = []
         # second tqdm (n pretokens)
         # for pre_token, is_special in tqdm(pre_tokens):
         for pre_token, is_special in pre_tokens:
             if is_special:
-                res.append(tuple((pre_token,)))
+                res.append((pre_token,))
             else:
                 while True:
                     # print('--- iter ---')
@@ -93,9 +91,7 @@ class Tokenizer:
                     if min_pair is None:
                         break
                     new_tuple_pairs = (
-                        pre_token[:min_pair_index]
-                        + (min_pair[0] + min_pair[1],)
-                        + pre_token[min_pair_index + 2 :]
+                        pre_token[:min_pair_index] + (min_pair[0] + min_pair[1],) + pre_token[min_pair_index + 2 :]
                     )
                     pre_token = tuple(new_tuple_pairs)
                 res.append(pre_token)
@@ -125,6 +121,7 @@ class Tokenizer:
             merges=payload["merges"],
             special_tokens=payload["special_tokens"],
         )
+
 
 """
 uv run python - <<'PY'
