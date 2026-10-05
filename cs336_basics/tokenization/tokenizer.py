@@ -1,5 +1,6 @@
 import json
 from typing import Iterable, Iterator, Type
+from functools import lru_cache
 
 import regex as re
 from tqdm import tqdm
@@ -52,6 +53,29 @@ class Tokenizer:
                     merges.append(tuple(cleaned_line.split(" ")))
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
+    @lru_cache(maxsize=300_000)
+    def _encode_pre_token(self, pre_token: bytes) -> tuple[int, ...]:
+        tokens = tuple(bytes([b]) for b in pre_token)
+
+        while True:
+            min_pair_rank = float("inf")
+            min_pair_index = None
+            min_pair = None
+
+            for index, pair in enumerate(zip(tokens, tokens[1:])):
+                pair_rank = self.pair_ranks.get(pair, None)
+
+                if pair_rank is not None and pair_rank < min_pair_rank:
+                    min_pair_rank = pair_rank
+                    min_pair_index = index
+                    min_pair = pair
+
+            if min_pair is None:
+                break
+
+            tokens = tokens[:min_pair_index] + (min_pair[0] + min_pair[1],) + tokens[min_pair_index + 2 :]
+        return [self.inverse_vocab[token] for token in tokens]
+
     def encode(self, text: str) -> list[int]:
         # split into tests and special tokens with re.split
         # Run pre-tokenization on your chunk and store the counts for each pre-token
@@ -59,53 +83,20 @@ class Tokenizer:
         if self.special_tokens:
             sorted_special_tokens = sorted(self.special_tokens, key=len, reverse=True)
             split_pattern = f"({'|'.join(map(re.escape, sorted_special_tokens))})"
-            splitted_text = re.split(split_pattern, text)
+            splitted_text: list[str] = re.split(split_pattern, text)
 
         else:
-            splitted_text = [text]
-
-        pre_tokens = []
-        # first tqdm (len splitted texts)
-        # for sub_text in tqdm(splitted_text):
-        for sub_text in splitted_text:
-            if self.special_tokens and sub_text in self.special_tokens:
-                pre_tokens.append((sub_text.encode("utf-8"), True))
-            else:
-                for pre_token in re.finditer(PAT, sub_text):
-                    byte_representation = tuple(bytes([b]) for b in pre_token.group().encode("utf-8"))
-                    pre_tokens.append((byte_representation, False))
-        res = []
-        # second tqdm (n pretokens)
-        # for pre_token, is_special in tqdm(pre_tokens):
-        for pre_token, is_special in pre_tokens:
-            if is_special:
-                res.append((pre_token,))
-            else:
-                while True:
-                    # print('--- iter ---')
-                    min_pair_rank = float("inf")
-                    min_pair_index = None
-                    min_pair = None
-                    for index, pair in enumerate(zip(pre_token, pre_token[1:])):
-                        pair_rank = self.pair_ranks.get(pair, None)
-                        if pair_rank is not None and pair_rank < min_pair_rank:
-                            min_pair_rank = pair_rank
-                            min_pair_index = index
-                            min_pair = pair
-                    if min_pair is None:
-                        break
-                    new_tuple_pairs = (
-                        pre_token[:min_pair_index] + (min_pair[0] + min_pair[1],) + pre_token[min_pair_index + 2 :]
-                    )
-                    pre_token = tuple(new_tuple_pairs)
-                res.append(pre_token)
+            splitted_text: list[str] = [text]
 
         out = []
-        # second tqdm (n pretokens -> indices)
-        # for r in tqdm(res):
-        for r in res:
-            for token in r:
-                out.append(self.inverse_vocab[token])
+        for sub_text in splitted_text:
+            if self.special_tokens and sub_text in self.special_tokens:
+                out.append(self.inverse_vocab[sub_text.encode("utf-8")])
+            else:
+                for match in re.finditer(PAT, sub_text):
+                    pre_token = match.group().encode("utf-8")
+                    out.extend(self._encode_pre_token(pre_token))
+
         return out
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
@@ -125,23 +116,3 @@ class Tokenizer:
             merges=payload["merges"],
             special_tokens=payload["special_tokens"],
         )
-
-
-"""
-uv run python - <<'PY'
-import pickle
-from pathlib import Path
-from cs336_basics.tokenization.tokenizer import Tokenizer
-path = Path("/tmp/cs336-bpe-smoke/tokenizer.pkl")
-
-t = Tokenizer.from_pickle(path)
-
-text = "Мама мыла раму"
-tokens = t.encode(text)
-decoded_text = t.decode(tokens)
-
-assert text == decoded_text
-print(text == decoded_text)
-PY
-
-"""

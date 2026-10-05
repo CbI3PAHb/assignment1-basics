@@ -129,3 +129,27 @@ TIKTOKEN_CACHE_DIR="$PWD/.cache/tiktoken" \
 
 This preserves TLS verification and tests the implementation against the same
 GPT-2 data expected by `tiktoken`.
+
+```
+"""
+uv run python - <<'PY'
+import pickle
+from pathlib import Path
+from cs336_basics.tokenization.tokenizer import Tokenizer
+path = Path("/tmp/cs336-bpe-smoke/tokenizer.pkl")
+
+t = Tokenizer.from_pickle(path)
+
+text = "Мама мыла раму"
+tokens = t.encode(text)
+decoded_text = t.decode(tokens)
+
+assert text == decoded_text
+print(text == decoded_text)
+PY
+
+Reading:  99%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊ | 287M/290M [00:58<00:00, 4.94MB/s]
+2026-10-05 20:56:08,819 - __main__ - INFO - tokens_count=66296750
+1 * 10 ** 12 / (5 * 10 ** 6) / 3600 hours for tokenize 1T dataset with 5 MB/s :) 
+"""
+```

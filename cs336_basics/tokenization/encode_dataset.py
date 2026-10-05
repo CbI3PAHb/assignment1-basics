@@ -30,11 +30,9 @@ def iter_documents(
     input_file.seek(0, os.SEEK_END)
     file_size = input_file.tell()
     input_file.seek(0)
-        
+
     with tqdm(total=file_size, unit="B", unit_scale=True, desc="Reading") as pbar:
         while chunk := input_file.read(read_size):
-            pbar.update(len(chunk))
-
             remainder += chunk
             parts = remainder.split(document_separator)
 
@@ -43,8 +41,12 @@ def iter_documents(
             for document in parts:
                 yield document + document_separator
 
+            pbar.update(len(chunk))
+
         if remainder:
             yield remainder
+            pbar.update(len(remainder))
+
 
 
 def encode_dataset(
@@ -76,7 +78,7 @@ def encode_dataset(
             token_count = 0
             token_buffer: list[int] = []
 
-            documents = iter_documents(input_file, document_separator, read_size=2 * 1024 * 1024)
+            documents = iter_documents(input_file, document_separator, read_size=8 * 1024 * 1024)
             token_ids = tokenizer.encode_iterable(documents)
 
             for token_id in token_ids:
