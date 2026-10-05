@@ -4,7 +4,6 @@ uv run python -m cs336_basics.tokenization.encode_dataset \
     --input-path data/TinyStoriesV2-GPT4-train.txt \
     --output-path tokenized_datasets/tinystories_train.bin
 """
-import os
 import numpy as np
 
 from collections.abc import Iterator
@@ -42,6 +41,9 @@ def encode_dataset(
     write_buffer_size: int,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    if write_buffer_size <= 0:
+        raise ValueError("write_buffer_size must be positive")
 
     if output_path.exists():
         raise RuntimeError(f"{output_path} already existed")
