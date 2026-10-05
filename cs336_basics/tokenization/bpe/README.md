@@ -43,6 +43,6 @@ only after the Stanford tests and all regression tests pass.
 
 ```bash
 uv run pytest -q \
-  tests/test_train_bpe.py \
-  tests/test_train_bpe_regressions.py
+  tests/tokenization/test_train_bpe.py \
+  tests/tokenization/test_train_bpe_regressions.py
 ```

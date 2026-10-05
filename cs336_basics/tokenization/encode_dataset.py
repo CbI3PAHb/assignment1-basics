@@ -1,8 +1,8 @@
 """
 uv run python -m cs336_basics.tokenization.encode_dataset \
-    --tokenizer-path artifacts/tokenizers/tinystories/tokenizer.pkl \
-    --input-path data/TinyStoriesV2-GPT4-train.txt \
-    --output-path tokenized_datasets/tinystories_train.bin
+    --tokenizer-path artifacts/tokenizers/owt_valid/tokenizer.pkl \
+    --input-path /home/parii-artem/wip/EFDL/assignment1-basics/data/owt_valid.txt \
+    --output-path tokenized_datasets/owt_valid.bin
 """
 
 import numpy as np

@@ -124,7 +124,7 @@ cp -- tests/fixtures/gpt2_vocab.json \
 } > .cache/tiktoken/6d1cbeee0f20b3d9449abfede4726ed8212e3aee
 
 TIKTOKEN_CACHE_DIR="$PWD/.cache/tiktoken" \
-  uv run pytest tests/test_tokenizer.py
+  uv run pytest tests/tokenization/test_tokenizer.py
 ```
 
 This preserves TLS verification and tests the implementation against the same
