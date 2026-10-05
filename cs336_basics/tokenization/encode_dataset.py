@@ -41,12 +41,10 @@ def iter_documents(
             for document in parts:
                 yield document + document_separator
 
-            pbar.update(len(chunk))
+            pbar.update(len(chunk.encode("utf-8")))
 
         if remainder:
             yield remainder
-            pbar.update(len(remainder))
-
 
 
 def encode_dataset(

@@ -74,7 +74,8 @@ class Tokenizer:
                 break
 
             tokens = tokens[:min_pair_index] + (min_pair[0] + min_pair[1],) + tokens[min_pair_index + 2 :]
-        return [self.inverse_vocab[token] for token in tokens]
+        # return [self.inverse_vocab[token] for token in tokens]
+        return tuple(self.inverse_vocab[token] for token in tokens)
 
     def encode(self, text: str) -> list[int]:
         # split into tests and special tokens with re.split
