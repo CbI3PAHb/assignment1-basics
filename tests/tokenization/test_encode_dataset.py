@@ -41,7 +41,7 @@ def test_encode_dataset_writes_streamed_uint16_tokens(tmp_path: Path) -> None:
         input_path=input_path,
         output_path=output_path,
         document_separator="<S>",
-        write_buffer_size=2,
+        write_buffer_tokens=2,
     )
 
     token_ids = np.fromfile(output_path, dtype=np.uint16)

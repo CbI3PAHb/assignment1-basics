@@ -24,6 +24,10 @@ class Tokenizer:
         self.inverse_vocab = {v: k for k, v in self.vocab.items()}
         self.pair_ranks: dict[tuple[bytes, bytes], int] = self._prepare_pair_ranks()
 
+    @property
+    def vocab_size(self) -> int:
+        return len(self.vocab)
+
     def _prepare_pair_ranks(self) -> dict[tuple[bytes, bytes], int]:
         pair_ranks: dict[tuple[bytes, bytes], int] = dict()
         for rank, merge in enumerate(self.merges):

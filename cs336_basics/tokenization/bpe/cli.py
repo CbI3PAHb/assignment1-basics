@@ -23,13 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    """Parse CLI arguments.
-
-    TODO:
-        Decide which arguments should be required and improve their help text.
-        ``argv`` is injectable so the parser can be tested without patching
-        ``sys.argv``.
-    """
+    """Parse CLI arguments"""
     parser = argparse.ArgumentParser(description="Train a BPE tokenizer.")
     parser.add_argument("--dataset-file-path", type=Path, required=True)
     parser.add_argument("--save-file-path", type=Path, required=True)
