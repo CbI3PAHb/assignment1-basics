@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import functools
+import json
+import logging
+import math
+import os
+
 import einops
 import einx
 import torch
@@ -8,6 +14,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 
+# uv run pytest -k test_linear
 class LinearModule(nn.Module):
     def __init__(
         self,
@@ -25,7 +32,7 @@ class LinearModule(nn.Module):
         torch.nn.init.trunc_normal_(tensor=data, mean=mean, std=std, a=-3 * std, b=3 * std)
         self.weight = nn.Parameter(data)
 
-    def forward(self, x: Float[Tensor, "... in_features"]) -> Float[Tensor, "... out_features"]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return einops.einsum(
             x,
             self.weight,
@@ -33,6 +40,7 @@ class LinearModule(nn.Module):
         )
 
 
+# uv run pytest -k test_embedding
 class EmbeddingModule(nn.Module):
     def __init__(
         self,
@@ -52,10 +60,11 @@ class EmbeddingModule(nn.Module):
         torch.nn.init.trunc_normal_(tensor=data, mean=0, std=1, a=-3, b=3)
         self.weight = torch.nn.Parameter(data)
 
-    def forward(self, token_ids: Int[Tensor, "..."]) -> Float[Tensor, "... d_model"]:
+    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         return self.weight[token_ids]
 
 
+# uv run pytest -k test_rmsnorm
 class RMSNormModule(nn.Module):
     def __init__(
         self,
@@ -70,14 +79,14 @@ class RMSNormModule(nn.Module):
         data = torch.ones(size=(d_model,), device=device, dtype=dtype)
         self.weight = nn.Parameter(data)
 
-    def forward(self, x: Float[Tensor, "... d_model"]) -> Float[Tensor, "... d_model"]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         in_dtype = x.dtype
         x = x.to(torch.float32)
         result = x / (x.pow(2).sum(-1, keepdim=True) / self.d_model + self.eps).sqrt() * self.weight
         return result.to(in_dtype)
 
 
-def silu(x: Float[Tensor, "..."]) -> Float[Tensor, "..."]:
+def silu(x: torch.Tensor):
     return x * torch.sigmoid(x)
 
 
@@ -102,7 +111,7 @@ class FFN(nn.Module):
         d_ffn = (d_ffn_approx + k - 1) // k * k
         return d_ffn
 
-    def forward(self, x: Float[Tensor, "... d_model"]) -> Float[Tensor, "... d_model"]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.w2(silu(self.w1(x)) * self.w3(x))
         return x
 
@@ -120,11 +129,11 @@ class RoPE(nn.Module):
         self.qk_head_dim = qk_head_dim
         self.max_seq_len = max_seq_len
 
-        seq_dim: Float[Tensor, "max_seq_len"] = torch.arange(0, self.max_seq_len, dtype=torch.float32, device=device)
-        inv_freqs: Float[Tensor, "qk_head_dim"] = theta ** -(
+        seq_dim = torch.arange(0, self.max_seq_len, dtype=torch.float32, device=device)
+        inv_freqs = theta ** -(
             torch.arange(0, self.qk_head_dim, 2, dtype=torch.float32, device=device) / self.qk_head_dim
         )
-        freqs: Float[Tensor, "max_seq_len qk_head_dim"] = einops.einsum(seq_dim, inv_freqs, "i, j -> i j")
+        freqs = einops.einsum(seq_dim, inv_freqs, "i, j -> i j")
 
         self.register_buffer("cos", freqs.cos(), persistent=False)
         self.register_buffer("sin", freqs.sin(), persistent=False)
@@ -135,13 +144,8 @@ class RoPE(nn.Module):
         pos_ids: Int[Tensor, " ... seq"] | None = None,
     ) -> Float[Tensor, " ... seq d"]:
         seq_len = x.shape[-2]
-
-        if pos_ids is not None and seq_len != pos_ids.shape[-1]:
-            raise ValueError(f"got {pos_ids.shape[-1]=}, {x.shape[-2]=}")
-
         if seq_len > self.max_seq_len:
             raise ValueError(f"Sequence len = ({seq_len}) is greater than max seq len = ({self.max_seq_len}).")
-
         if pos_ids is None:
             sin = self.sin[:seq_len, :]
             cos = self.cos[:seq_len, :]
@@ -149,15 +153,11 @@ class RoPE(nn.Module):
             sin = self.sin[pos_ids, :]
             cos = self.cos[pos_ids, :]
 
-        odds, evens = einops.rearrange(x, "... (half_d_model two) -> two ... half_d_model", two=2)
-        new_odds  = odds * cos - evens * sin
-        new_evens = odds * sin + evens * cos
+        x1, x2 = einops.rearrange(x, "... (half_d_model x1x2) -> x1x2 ... half_d_model", x1x2=2)
+        x1_rot = x1 * cos - x2 * sin
+        x2_rot = x1 * sin + x2 * cos
 
-        # re-interleave odds and evens:
-        # odds       = [0,    2,    4,    ...]
-        # evens      = [   1,    3,    5, ...]
-        # rearranged = [0, 1, 2, 3, 4, 5, ...]
-        return einx.rearrange("... x_half, ... x_half -> ... (x_half (1 + 1))", new_odds, new_evens).contiguous()
+        return einx.rearrange("... x_half, ... x_half -> ... (x_half (1 + 1))", x1_rot, x2_rot).contiguous()
 
 
 def softmax(x: torch.Tensor, dim: int = -1):
@@ -169,7 +169,7 @@ def softmax(x: torch.Tensor, dim: int = -1):
 def scaled_dot_product_attention(
     q: Float[Tensor, "... seq_len qk_head_dim"],
     k: Float[Tensor, "... seq_len qk_head_dim"],
-    v: Float[Tensor, "... seq_len v_head_dim"],
+    v: Float[Tensor, "... seq_len d_v"],
     mask: Bool[Tensor, "seq_len seq_len"] | None = None,
 ):
     o = einops.einsum(q, k, "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len")
@@ -180,7 +180,7 @@ def scaled_dot_product_attention(
         o = o + mask
 
     p = softmax(o)
-    return einops.einsum(p, v, "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim")
+    return einops.einsum(p, v, "... q_seq_len k_seq_len, ... k_seq_len d_v -> ... q_seq_len d_v")
 
 
 class MultiHeadSelfAttention(nn.Module):
@@ -274,12 +274,9 @@ class TransformerLM(nn.Module):
         return logits
 
 
-def cross_entropy_loss(
-    logits: Float[Tensor, "... seq_len vocab_size"],
-    targets: Int[Tensor, "... seq_len"],
-):
+def cross_entropy_loss(logits: Float[Tensor, "... seq_len vocab_size"], targets: Int[Tensor, "... seq_len"]):
     # -log(softmax(logits)) = -x_correct + log(sum(exp(x)))
-    log_sum_exp_logits: Float[Tensor, "... seq_len vocab_size"] = einx.logsumexp("... vocab_size -> ...", logits)
+    log_sum_exp_logits = einx.logsumexp("... vocab_size -> ...", logits)
     selected_logits = einx.get_at("... seq_len [vocab_size], ... seq_len -> ... seq_len", logits, targets)
     loss = -selected_logits + log_sum_exp_logits
     return loss.mean()

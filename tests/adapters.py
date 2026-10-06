@@ -16,7 +16,7 @@ from cs336_basics.transformers.transformers import (
     EmbeddingModule,
     LinearModule,
     MultiHeadSelfAttention,
-    RootMeanSquareLayerNormalizationModule,
+    RMSNormModule,
     RoPE,
     TransformerBlock,
     TransformerLM,
@@ -117,8 +117,8 @@ def run_swiglu(
 
 
 def run_scaled_dot_product_attention(
-    Q: Float[Tensor, " ... queries d_k"],
-    K: Float[Tensor, " ... keys d_k"],
+    Q: Float[Tensor, " ... queries qk_head_dim"],
+    K: Float[Tensor, " ... keys qk_head_dim"],
     V: Float[Tensor, " ... values d_v"],
     mask: Bool[Tensor, " ... queries keys"] | None = None,
 ) -> Float[Tensor, " ... queries d_v"]:
@@ -127,8 +127,8 @@ def run_scaled_dot_product_attention(
     the output of your scaled dot product attention implementation.
 
     Args:
-        Q (Float[Tensor, " ... queries d_k"]): Query tensor
-        K (Float[Tensor, " ... keys d_k"]): Key tensor
+        Q (Float[Tensor, " ... queries qk_head_dim"]): Query tensor
+        K (Float[Tensor, " ... keys qk_head_dim"]): Key tensor
         V (Float[Tensor, " ... values d_v"]): Values tensor
         mask (Bool[Tensor, " ... queries keys"] | None): Mask tensor
     Returns:
@@ -140,8 +140,8 @@ def run_scaled_dot_product_attention(
 def run_multihead_self_attention(
     d_model: int,
     num_heads: int,
-    q_proj_weight: Float[Tensor, " d_k d_in"],
-    k_proj_weight: Float[Tensor, " d_k d_in"],
+    q_proj_weight: Float[Tensor, " qk_head_dim d_in"],
+    k_proj_weight: Float[Tensor, " qk_head_dim d_in"],
     v_proj_weight: Float[Tensor, " d_v d_in"],
     o_proj_weight: Float[Tensor, " d_model d_v"],
     in_features: Float[Tensor, " ... sequence_length d_in"],
@@ -158,9 +158,9 @@ def run_multihead_self_attention(
         d_model (int): Dimensionality of the feedforward input and output.
         num_heads (int): Number of heads to use in multi-headed attention.
         max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
-        q_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the Q projection
-        k_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the K projection
-        v_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the V projection
+        q_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the Q projection
+        k_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the K projection
+        v_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the V projection
         o_proj_weight (Float[Tensor, "d_model d_v"]): Weights for the output projection
         in_features (Float[Tensor, "... sequence_length d_in"]): Tensor to run your implementation on.
 
@@ -185,8 +185,8 @@ def run_multihead_self_attention_with_rope(
     num_heads: int,
     max_seq_len: int,
     theta: float,
-    q_proj_weight: Float[Tensor, " d_k d_in"],
-    k_proj_weight: Float[Tensor, " d_k d_in"],
+    q_proj_weight: Float[Tensor, " qk_head_dim d_in"],
+    k_proj_weight: Float[Tensor, " qk_head_dim d_in"],
     v_proj_weight: Float[Tensor, " d_v d_in"],
     o_proj_weight: Float[Tensor, " d_model d_v"],
     in_features: Float[Tensor, " ... sequence_length d_in"],
@@ -206,9 +206,9 @@ def run_multihead_self_attention_with_rope(
         num_heads (int): Number of heads to use in multi-headed attention.
         max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
         theta (float): RoPE parameter.
-        q_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the Q projection
-        k_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the K projection
-        v_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the V projection
+        q_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the Q projection
+        k_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the K projection
+        v_proj_weight (Float[Tensor, "qk_head_dim d_in"]): Weights for the V projection
         o_proj_weight (Float[Tensor, "d_model d_v"]): Weights for the output projection
         in_features (Float[Tensor, "... sequence_length d_in"]): Tensor to run your implementation on.
         token_positions (Int[Tensor, " ... sequence_length"] | None): Optional tensor with the positions of the tokens
@@ -230,25 +230,25 @@ def run_multihead_self_attention_with_rope(
 
 
 def run_rope(
-    d_k: int,
+    qk_head_dim: int,
     theta: float,
     max_seq_len: int,
-    in_query_or_key: Float[Tensor, " ... sequence_length d_k"],
+    in_query_or_key: Float[Tensor, " ... sequence_length qk_head_dim"],
     token_positions: Int[Tensor, " ... sequence_length"],
-) -> Float[Tensor, " ... sequence_length d_k"]:
+) -> Float[Tensor, " ... sequence_length qk_head_dim"]:
     """
     Run RoPE for a given input tensor.
 
     Args:
-        d_k (int): Embedding dimension size for the query or key tensor.
+        qk_head_dim (int): Embedding dimension size for the query or key tensor.
         theta (float): RoPE parameter.
         max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
-        in_query_or_key (Float[Tensor, "... sequence_length d_k"]): Input tensor to run RoPE on.
+        in_query_or_key (Float[Tensor, "... sequence_length qk_head_dim"]): Input tensor to run RoPE on.
         token_positions (Int[Tensor, "... sequence_length"]): Tensor of shape (batch_size, sequence_length) with the token positions
     Returns:
-        Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
+        Float[Tensor, " ... sequence_length qk_head_dim"]: Tensor with RoPEd input.
     """
-    rope = RoPE(theta, d_k, max_seq_len)
+    rope = RoPE(theta, qk_head_dim, max_seq_len)
     return rope(in_query_or_key, token_positions)
 
 
@@ -283,12 +283,12 @@ def run_transformer_block(
             - `attn.q_proj.weight`
                 The query projections for all `num_heads` attention heads.
                 Shape is (d_model, d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
+                The rows are ordered by matrices of shape (num_heads, qk_head_dim),
                 so `attn.q_proj.weight == torch.cat([q_heads.0.weight, ..., q_heads.N.weight], dim=0)`.
             - `attn.k_proj.weight`
                 The key projections for all `num_heads` attention heads.
                 Shape is (d_model, d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
+                The rows are ordered by matrices of shape (num_heads, qk_head_dim),
                 so `attn.k_proj.weight == torch.cat([k_heads.0.weight, ..., k_heads.N.weight], dim=0)`.
             - `attn.v_proj.weight`
                 The value projections for all `num_heads` attention heads.
@@ -373,12 +373,12 @@ def run_transformer_lm(
             - `layers.{num_layers}.attn.q_proj.weight`
                 The query projections for all `num_heads` attention heads.
                 Shape is (num_heads * (d_model / num_heads), d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
+                The rows are ordered by matrices of shape (num_heads, qk_head_dim),
                 so `attn.q_proj.weight == torch.cat([q_heads.0.weight, ..., q_heads.N.weight], dim=0)`.
             - `layers.{num_layers}.attn.k_proj.weight`
                 The key projections for all `num_heads` attention heads.
                 Shape is (num_heads * (d_model / num_heads), d_model).
-                The rows are ordered by matrices of shape (num_heads, d_k),
+                The rows are ordered by matrices of shape (num_heads, qk_head_dim),
                 so `attn.k_proj.weight == torch.cat([k_heads.0.weight, ..., k_heads.N.weight], dim=0)`.
             - `layers.{num_layers}.attn.v_proj.weight`
                 The value projections for all `num_heads` attention heads.
@@ -484,7 +484,7 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    rmsnorm = RootMeanSquareLayerNormalizationModule(d_model, eps)
+    rmsnorm = RMSNormModule(d_model, eps)
     rmsnorm.load_state_dict({"weight": weights})
     return rmsnorm(in_features)
 

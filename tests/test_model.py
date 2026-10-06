@@ -65,7 +65,7 @@ def test_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
 
 
 def test_4d_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
-    # Shape: (batch_size, num_heads, seq_len, d_k)
+    # Shape: (batch_size, num_heads, seq_len, qk_head_dim)
     q, k, v = (
         rearrange(x, "(batch head) seq d -> batch head seq d", head=2)
         for x in (q, k, v)
