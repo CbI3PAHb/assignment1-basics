@@ -151,7 +151,7 @@ class RoPE(nn.Module):
             cos = self.cos[pos_ids, :]
 
         odds, evens = einops.rearrange(x, "... (half_d_model two) -> two ... half_d_model", two=2)
-        new_odds  = odds * cos - evens * sin
+        new_odds = odds * cos - evens * sin
         new_evens = odds * sin + evens * cos
 
         # re-interleave odds and evens:
@@ -279,9 +279,19 @@ class TransformerLM(nn.Module):
 def cross_entropy_loss(
     logits: Float[Tensor, "... seq_len vocab_size"],
     targets: Int[Tensor, "... seq_len"],
-) -> Float[Tensor, "... seq_len"]:
+) -> Float[Tensor, ""]:
     # -log(softmax(logits)) = -x_correct + log(sum(exp(x)))
-    log_sum_exp_logits: Float[Tensor, "... seq_len"] = einx.logsumexp("... vocab_size -> ...", logits)
-    selected_logits: Float[Tensor, "... seq_len"] = einx.get_at("... seq_len [vocab_size], ... seq_len -> ... seq_len", logits, targets)
+    log_sum_exp_logits: Float[Tensor, "... seq_len"] = einx.logsumexp(
+        "... vocab_size -> ...",
+        logits,
+    )
+
+    selected_logits: Float[Tensor, "... seq_len"] = einx.get_at(
+        "... seq_len [vocab_size], ... seq_len -> ... seq_len",
+        logits,
+        targets,
+    )
+
     loss: Float[Tensor, "... seq_len"] = -selected_logits + log_sum_exp_logits
+
     return loss.mean()
