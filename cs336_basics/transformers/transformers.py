@@ -4,7 +4,8 @@ import einops
 import einx
 import torch
 import torch.nn as nn
-from jaxtyping import Bool, Float, Int
+from beartype import beartype
+from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
 
@@ -274,12 +275,13 @@ class TransformerLM(nn.Module):
         return logits
 
 
+@jaxtyped(typechecker=beartype)
 def cross_entropy_loss(
     logits: Float[Tensor, "... seq_len vocab_size"],
     targets: Int[Tensor, "... seq_len"],
-):
+) -> Float[Tensor, "... seq_len"]:
     # -log(softmax(logits)) = -x_correct + log(sum(exp(x)))
-    log_sum_exp_logits: Float[Tensor, "... seq_len vocab_size"] = einx.logsumexp("... vocab_size -> ...", logits)
-    selected_logits = einx.get_at("... seq_len [vocab_size], ... seq_len -> ... seq_len", logits, targets)
-    loss = -selected_logits + log_sum_exp_logits
+    log_sum_exp_logits: Float[Tensor, "... seq_len"] = einx.logsumexp("... vocab_size -> ...", logits)
+    selected_logits: Float[Tensor, "... seq_len"] = einx.get_at("... seq_len [vocab_size], ... seq_len -> ... seq_len", logits, targets)
+    loss: Float[Tensor, "... seq_len"] = -selected_logits + log_sum_exp_logits
     return loss.mean()
