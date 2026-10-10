@@ -9,6 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
+from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.tokenization.bpe import train_bpe
 from cs336_basics.tokenization.tokenizer import Tokenizer
 from cs336_basics.transformers.transformers import (
@@ -26,6 +27,7 @@ from cs336_basics.transformers.transformers import (
     silu,
 )
 from cs336_basics.optimizer.adamw import AdamW
+from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
 
 
 def run_linear(
@@ -571,7 +573,7 @@ def run_gradient_clipping(
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    return gradient_clipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> Any:
@@ -606,7 +608,13 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return cosine_lr_scheduler(
+        it=it,
+        max_learning_rate=max_learning_rate,
+        min_learning_rate=min_learning_rate,
+        warmup_iters=warmup_iters,
+        cosine_cycle_iters=cosine_cycle_iters,
+    )
 
 
 def run_save_checkpoint(
