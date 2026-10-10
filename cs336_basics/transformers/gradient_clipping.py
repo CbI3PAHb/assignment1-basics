@@ -1,5 +1,6 @@
-import torch
 from typing import Iterable
+
+import torch
 
 
 def gradient_clipping(

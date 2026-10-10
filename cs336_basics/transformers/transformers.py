@@ -178,7 +178,11 @@ def scaled_dot_product_attention(
     v: Float[Tensor, "... seq_len v_head_dim"],
     mask: Bool[Tensor, "seq_len seq_len"] | None = None,
 ):
-    scores = einops.einsum(q, k, "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len")
+    scores = einops.einsum(
+        q,
+        k,
+        "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len",
+    )
     scores = scores / q.shape[-1] ** 0.5
 
     if mask is not None:
@@ -186,7 +190,11 @@ def scaled_dot_product_attention(
         scores = scores + mask
 
     probs = softmax(scores)
-    return einops.einsum(probs, v, "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim")
+    return einops.einsum(
+        probs,
+        v,
+        "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim",
+    )
 
 
 class MultiHeadSelfAttention(nn.Module):

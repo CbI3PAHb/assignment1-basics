@@ -1,8 +1,7 @@
 import numpy as np
 import torch
-
-from torch import Tensor
 from jaxtyping import Int
+from torch import Tensor
 
 
 def get_batch(

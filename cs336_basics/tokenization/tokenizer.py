@@ -1,12 +1,12 @@
 import json
-from typing import Iterable, Iterator, Type
+import pickle
 from functools import lru_cache
+from pathlib import Path
+from typing import Iterable, Iterator, Type
 
 import regex as re
 from tqdm import tqdm
 
-import pickle
-from pathlib import Path
 from cs336_basics.pretokenization_example import PAT
 
 # PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""

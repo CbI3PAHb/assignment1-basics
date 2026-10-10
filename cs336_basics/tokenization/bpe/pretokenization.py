@@ -1,15 +1,16 @@
 """Parallel pre-token counting for BPE training."""
 
 from __future__ import annotations
+
 import logging
 import multiprocessing
-import tqdm
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import regex as re
+import tqdm
 
 from cs336_basics.pretokenization_example import PAT
 
@@ -168,7 +169,9 @@ def count_pretokens(
 
     tasks = []
     chunk_boundaries = find_safe_chunk_boundaries(
-        input_path=input_path, desired_num_chunks=desired_num_chunks, split_token=special_tokens[0].encode("utf-8")
+        input_path=input_path,
+        desired_num_chunks=desired_num_chunks,
+        split_token=special_tokens[0].encode("utf-8"),
     )
     for start_byte, end_byte in zip(chunk_boundaries[:-1], chunk_boundaries[1:]):
         task = ChunkTask(

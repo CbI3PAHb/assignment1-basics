@@ -4,10 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cs336_basics.tokenization.bpe.pretokenization import (
-    find_safe_chunk_boundaries,
-)
-
+from cs336_basics.tokenization.bpe.pretokenization import find_safe_chunk_boundaries
 
 SPLIT_TOKEN = b"<S>"
 
@@ -21,15 +18,7 @@ def _write_corpus(tmp_path: Path, contents: bytes) -> Path:
 def test_find_safe_chunk_boundaries_uses_custom_split_token(
     tmp_path: Path,
 ) -> None:
-    contents = (
-        b"a" * 15
-        + SPLIT_TOKEN
-        + b"b" * 12
-        + SPLIT_TOKEN
-        + b"c" * 12
-        + SPLIT_TOKEN
-        + b"d" * 12
-    )
+    contents = b"a" * 15 + SPLIT_TOKEN + b"b" * 12 + SPLIT_TOKEN + b"c" * 12 + SPLIT_TOKEN + b"d" * 12
     input_path = _write_corpus(tmp_path, contents)
 
     boundaries = find_safe_chunk_boundaries(
@@ -39,10 +28,7 @@ def test_find_safe_chunk_boundaries_uses_custom_split_token(
     )
 
     assert boundaries == [0, 15, 30, 45, len(contents)]
-    assert all(
-        contents.startswith(SPLIT_TOKEN, boundary)
-        for boundary in boundaries[1:-1]
-    )
+    assert all(contents.startswith(SPLIT_TOKEN, boundary) for boundary in boundaries[1:-1])
 
 
 def test_find_safe_chunk_boundaries_returns_fewer_chunks_without_delimiters(
@@ -66,11 +52,7 @@ def test_find_safe_chunk_boundaries_finds_token_across_read_blocks(
     file_size = 10_000
     first_search_position = file_size // 2
     token_position = first_search_position + 4096
-    contents = (
-        b"a" * token_position
-        + SPLIT_TOKEN
-        + b"b" * (file_size - token_position - len(SPLIT_TOKEN))
-    )
+    contents = b"a" * token_position + SPLIT_TOKEN + b"b" * (file_size - token_position - len(SPLIT_TOKEN))
     input_path = _write_corpus(tmp_path, contents)
 
     boundaries = find_safe_chunk_boundaries(

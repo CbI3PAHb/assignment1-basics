@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import heapq
 import logging
-
-from dataclasses import dataclass
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
+
 from tqdm import tqdm
 
 from .pretokenization import Pretoken, count_pretokens
@@ -111,7 +111,10 @@ class BPETrainer:
             raise RuntimeError("pair heap contains no current entries")
         else:
             # brute_force
-            return max(self.pair_frequencies, key=lambda pair: (self.pair_frequencies.get(pair, 0), pair))
+            return max(
+                self.pair_frequencies,
+                key=lambda pair: (self.pair_frequencies.get(pair, 0), pair),
+            )
 
     def _apply_merge(self, pair: Merge) -> None:
         """Apply one non-overlapping merge and update every cache invariant."""

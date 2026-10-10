@@ -8,7 +8,6 @@ import pytest
 import cs336_basics.tokenization.bpe.pretokenization as pretokenization
 from cs336_basics.tokenization.bpe.pretokenization import count_pretokens
 
-
 SPECIAL_TOKENS = ("<|endoftext|>",)
 
 

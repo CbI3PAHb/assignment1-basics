@@ -9,24 +9,16 @@ import regex as re
 from cs336_basics.pretokenization_example import PAT
 from cs336_basics.tokenization.bpe import train_bpe
 
-
-HEAP_REGRESSION_TEXT = (
-    "becfebabeeeabacfbcbfffeccbcbbcebadbfcebbcfdcfedcedefdfac"
-)
+HEAP_REGRESSION_TEXT = "becfebabeeeabacfbcbfffeccbcbbcebadbfcebbcfdcfedcedefdfac"
 
 
-def _merge_pair(
-    tokens: tuple[bytes, ...], pair_to_merge: tuple[bytes, bytes]
-) -> tuple[bytes, ...]:
+def _merge_pair(tokens: tuple[bytes, ...], pair_to_merge: tuple[bytes, bytes]) -> tuple[bytes, ...]:
     """Apply one BPE merge from left to right without overlapping merges."""
     merged_tokens: list[bytes] = []
     index = 0
 
     while index < len(tokens):
-        if (
-            index + 1 < len(tokens)
-            and (tokens[index], tokens[index + 1]) == pair_to_merge
-        ):
+        if index + 1 < len(tokens) and (tokens[index], tokens[index + 1]) == pair_to_merge:
             merged_tokens.append(tokens[index] + tokens[index + 1])
             index += 2
         else:
@@ -45,10 +37,7 @@ def _reference_train_bpe(
     vocabulary = {token_id: bytes([token_id]) for token_id in range(256)}
 
     if special_tokens:
-        special_token_pattern = "|".join(
-            re.escape(token)
-            for token in sorted(special_tokens, key=len, reverse=True)
-        )
+        special_token_pattern = "|".join(re.escape(token) for token in sorted(special_tokens, key=len, reverse=True))
         text_parts = re.split(special_token_pattern, text)
     else:
         text_parts = [text]

@@ -5,17 +5,17 @@ uv run python -m cs336_basics.tokenization.encode_dataset \
     --tokenizer-file-path artifacts/tokenizers/owt_valid/tokenizer.pkl
 """
 
-import numpy as np
 import argparse
+import logging
 import os
+from collections.abc import Iterator, Sequence
+from pathlib import Path
+from typing import TextIO
+
+import numpy as np
 from tqdm import tqdm
 
-from collections.abc import Iterator, Sequence
-from typing import TextIO
 from cs336_basics.tokenization.tokenizer import Tokenizer
-from pathlib import Path
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,10 @@ def encode_dataset(
     temp_path = output_path.with_name(f".{output_path.name}.tmp")
 
     try:
-        with input_path.open(encoding="utf-8") as input_file, temp_path.open("wb") as output_file:
+        with (
+            input_path.open(encoding="utf-8") as input_file,
+            temp_path.open("wb") as output_file,
+        ):
             token_count = 0
             token_buffer: list[int] = []
 

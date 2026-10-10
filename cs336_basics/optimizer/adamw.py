@@ -1,9 +1,8 @@
 import math
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
-
-from typing import Callable, Optional
 
 
 class AdamW(torch.optim.Optimizer):

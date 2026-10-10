@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 
-from cs336_basics.tokenization.bpe.cli import setup_logging
 from cs336_basics.tokenization.bpe import trainer as trainer_module
+from cs336_basics.tokenization.bpe.cli import setup_logging
 
 
 def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:

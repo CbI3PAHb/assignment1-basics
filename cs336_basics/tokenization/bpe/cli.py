@@ -15,7 +15,6 @@ from pathlib import Path
 
 from .trainer import Merge, Vocabulary, train_bpe
 
-
 DEFAULT_SPECIAL_TOKEN = "<|endoftext|>"
 BPE_LOGGER_NAME = "cs336_basics.tokenization.bpe"
 
