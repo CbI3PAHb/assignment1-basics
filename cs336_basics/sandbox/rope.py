@@ -13,9 +13,7 @@ class RotaryPositionalEmbeddings(nn.Module):
         self.max_seq_len = max_seq_len
         self.base = base
 
-        inv_freq = 1.0 / (
-            self.base ** (torch.arange(0, self.dim, 2).float() / self.dim)
-        )
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float() / self.dim))
         t = torch.arange(self.max_seq_len, dtype=torch.float32)
 
         freqs = torch.einsum("i,j->ij", t, inv_freq)
@@ -81,9 +79,5 @@ if __name__ == "__main__":
     k_n4 = k_rotated_all[:, :, 15, :]
     dot_prod_4 = torch.sum(q_m4 * k_n4)
 
-    assert torch.allclose(
-        dot_prod_1, dot_prod_2
-    ), "Результаты для расстояния 2 должны быть одинаковыми!"
-    assert torch.allclose(
-        dot_prod_3, dot_prod_4
-    ), "Результаты для расстояния 5 должны быть одинаковыми!"
+    assert torch.allclose(dot_prod_1, dot_prod_2), "Результаты для расстояния 2 должны быть одинаковыми!"
+    assert torch.allclose(dot_prod_3, dot_prod_4), "Результаты для расстояния 5 должны быть одинаковыми!"
