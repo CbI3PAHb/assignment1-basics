@@ -9,6 +9,9 @@ def gradient_clipping(
 ) -> None:
     grads = [p.grad for p in parameters if p.grad is not None]
 
+    if not grads:
+        return
+
     norms = [torch.linalg.vector_norm(g) for g in grads]
     norm = torch.linalg.vector_norm(torch.stack(norms))
 
