@@ -135,6 +135,7 @@ class RoPE(nn.Module):
         x: Float[Tensor, " ... seq d"],
         pos_ids: Int[Tensor, " ... seq"] | None = None,
     ) -> Float[Tensor, " ... seq d"]:
+        input_dtype = x.dtype
         seq_len = x.shape[-2]
 
         if pos_ids is not None and seq_len != pos_ids.shape[-1]:
@@ -158,7 +159,11 @@ class RoPE(nn.Module):
         # odds       = [0,    2,    4,    ...]
         # evens      = [   1,    3,    5, ...]
         # rearranged = [0, 1, 2, 3, 4, 5, ...]
-        return einx.rearrange("... x_half, ... x_half -> ... (x_half (1 + 1))", new_odds, new_evens).contiguous()
+        return (
+            einx.rearrange("... x_half, ... x_half -> ... (x_half (1 + 1))", new_odds, new_evens)
+            .contiguous()
+            .to(input_dtype)
+        )
 
 
 def softmax(x: torch.Tensor, dim: int = -1):
@@ -173,15 +178,15 @@ def scaled_dot_product_attention(
     v: Float[Tensor, "... seq_len v_head_dim"],
     mask: Bool[Tensor, "seq_len seq_len"] | None = None,
 ):
-    o = einops.einsum(q, k, "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len")
-    o = o / q.shape[-1] ** 0.5
+    scores = einops.einsum(q, k, "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len")
+    scores = scores / q.shape[-1] ** 0.5
 
     if mask is not None:
         mask = torch.zeros_like(mask, dtype=q.dtype).masked_fill_(~mask, -torch.inf)
-        o = o + mask
+        scores = scores + mask
 
-    p = softmax(o)
-    return einops.einsum(p, v, "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim")
+    probs = softmax(scores)
+    return einops.einsum(probs, v, "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim")
 
 
 class MultiHeadSelfAttention(nn.Module):
@@ -224,7 +229,7 @@ class MultiHeadSelfAttention(nn.Module):
             k = self.rope(k, token_positions)
 
         seq_len = x.shape[-2]
-        mask = torch.triu(torch.ones(size=(seq_len, seq_len), dtype=torch.bool)).T
+        mask = torch.tril(torch.ones(size=(seq_len, seq_len), dtype=torch.bool))
         a = scaled_dot_product_attention(q, k, v, mask)
         a = einops.rearrange(a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)")
         return self.output_proj(a)
