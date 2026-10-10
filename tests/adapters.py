@@ -24,8 +24,8 @@ from cs336_basics.transformers.transformers import (
     softmax,
     cross_entropy_loss,
     silu,
-    
 )
+from cs336_basics.optimizer.adamw import AdamW
 
 
 def run_linear(
@@ -578,7 +578,7 @@ def get_adamw_cls() -> Any:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
