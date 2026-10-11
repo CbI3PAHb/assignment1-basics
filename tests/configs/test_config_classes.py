@@ -157,3 +157,121 @@ def test_runtime_accepts_supported_device_types(device):
 def test_runtime_rejects_indices_and_unsupported_devices(device):
     with pytest.raises(ValueError):
         RuntimeConfig(device=device)
+
+
+@pytest.mark.parametrize(
+    "field", ["vocab_size", "context_length", "d_model", "num_layers", "num_heads", "d_ff"]
+)
+@pytest.mark.parametrize("value", [0, True])
+def test_model_requires_positive_integer_dimensions(experiment, field, value):
+    with pytest.raises((TypeError, ValueError), match=field):
+        evolve(experiment.model, **{field: value})
+
+
+@pytest.mark.parametrize("field", ["sequence_length", "micro_batch_size"])
+@pytest.mark.parametrize("value", [0, -1, 128.1, True, "128"])
+def test_batching_requires_positive_integers(experiment, field, value):
+    with pytest.raises((TypeError, ValueError), match=field):
+        evolve(experiment.data.batching, **{field: value})
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True, "1"])
+def test_gradient_accumulation_requires_positive_integer(value):
+    with pytest.raises((TypeError, ValueError), match="gradient_accumulation_steps"):
+        LoopConfig(max_steps=100, gradient_accumulation_steps=value)
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "1.0", float("nan"), float("inf")])
+def test_gradient_clipping_requires_positive_finite_number(value):
+    with pytest.raises((TypeError, ValueError), match="max_grad_norm"):
+        LoopConfig(max_steps=100, max_grad_norm=value)
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True, "10"])
+def test_warmup_requires_nonnegative_integer(value):
+    with pytest.raises((TypeError, ValueError), match="warmup_steps"):
+        SchedulerConfig(warmup_steps=value)
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True, "10"])
+def test_checkpoint_interval_requires_positive_integer(value):
+    with pytest.raises((TypeError, ValueError), match="save_every_steps"):
+        CheckpointConfig(save_every_steps=value)
+
+
+@pytest.mark.parametrize("value", [None, 1])
+def test_checkpoint_interval_accepts_disabled_or_positive_value(value):
+    assert CheckpointConfig(save_every_steps=value).save_every_steps == value
+
+
+@pytest.mark.parametrize("dtype", ["uint16", "uint32"])
+def test_dataset_accepts_supported_storage_dtypes(dtype):
+    assert DatasetConfig(path="tokens.bin", dtype=dtype).dtype == dtype
+
+
+@pytest.mark.parametrize("dtype", ["uint8", "int32", "float32", None])
+def test_dataset_rejects_unsupported_storage_dtypes(dtype):
+    with pytest.raises(ValueError, match="dtype"):
+        DatasetConfig(path="tokens.bin", dtype=dtype)
+
+
+@pytest.mark.parametrize("path", ["", None, 123, False])
+def test_dataset_rejects_empty_or_invalid_paths(path):
+    with pytest.raises(ConfigError, match="path"):
+        DatasetConfig(path=path)
+
+
+@pytest.mark.parametrize("field", ["resume_from", "init_weights_from"])
+@pytest.mark.parametrize("path", ["", 123, False])
+def test_checkpoint_rejects_invalid_paths(field, path):
+    with pytest.raises(ConfigError, match="path"):
+        CheckpointConfig(**{field: path})
+
+
+@pytest.mark.parametrize("field", ["model", "data", "optimizer", "loop", "scheduler", "runtime", "checkpoint"])
+def test_experiment_requires_config_objects_for_components(experiment, field):
+    with pytest.raises(TypeError, match=field):
+        evolve(experiment, **{field: {}})
+
+
+@pytest.mark.parametrize("field", ["train", "batching"])
+def test_data_requires_dataset_and_batching_config_objects(experiment, field):
+    with pytest.raises(TypeError, match=field):
+        evolve(experiment.data, **{field: {}})
+
+
+@pytest.mark.parametrize(
+    "config_class, kwargs",
+    [(OptimizerConfig, {"type": "sgd"}), (SchedulerConfig, {"type": "linear"})],
+)
+def test_optimizer_and_scheduler_reject_unsupported_types(config_class, kwargs):
+    with pytest.raises(ValueError, match="type"):
+        config_class(**kwargs)
+
+
+def test_batching_rejects_unsupported_strategy():
+    with pytest.raises(ValueError, match="type"):
+        BatchingConfig(sequence_length=64, micro_batch_size=2, type="sequential")
+
+
+@pytest.mark.parametrize(
+    "component, field",
+    [
+        ("model", "d_model"),
+        ("data", "train"),
+        ("data.train", "path"),
+        ("data.batching", "micro_batch_size"),
+        ("optimizer", "lr"),
+        ("loop", "max_steps"),
+        ("scheduler", "min_lr"),
+        ("runtime", "device"),
+        ("checkpoint", "resume_from"),
+    ],
+)
+def test_all_component_configs_are_frozen(experiment, component, field):
+    config = experiment
+    for name in component.split("."):
+        config = getattr(config, name)
+
+    with pytest.raises(FrozenInstanceError):
+        setattr(config, field, None)

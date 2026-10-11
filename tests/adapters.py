@@ -17,19 +17,9 @@ from cs336_basics.tokenization.bpe import train_bpe
 from cs336_basics.tokenization.tokenizer import Tokenizer
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import (
-    FFN,
-    EmbeddingModule,
-    LinearModule,
-    MultiHeadSelfAttention,
-    RMSNormModule,
-    RoPE,
-    TransformerBlock,
-    TransformerLM,
-    cross_entropy_loss,
-    scaled_dot_product_attention,
-    silu,
-    softmax,
-)
+    FFN, EmbeddingModule, LinearModule, MultiHeadSelfAttention, RMSNormModule,
+    RoPE, TransformerBlock, TransformerLM, cross_entropy_loss,
+    scaled_dot_product_attention, silu, softmax)
 
 
 def run_linear(
