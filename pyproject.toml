@@ -5,6 +5,9 @@ description = "CS336 Assignment 1"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "attrs>=25.3.0", # configuration classes and validation
+    "cattrs", # conversion between dictionaries and configuration classes
+    "PyYAML", # YAML experiment configuration files
     "einops>=0.8.1", # tensor operations
     "einx>=0.3.0", # more general tensor operations
     "jaxtyping>=0.3.0", # type hints for pytorch/jax/numpy
@@ -25,6 +28,9 @@ dependencies = [
     "black",
     "isort"
 ]
+
+[project.scripts]
+cs336-basics = "cs336_basics.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]
