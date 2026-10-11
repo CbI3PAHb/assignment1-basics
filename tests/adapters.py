@@ -175,7 +175,9 @@ def run_multihead_self_attention(
     mhsa = MultiHeadSelfAttention(d_model, num_heads)
     mhsa.load_state_dict(
         {
-            "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
+            "w_qkv.weight": torch.cat(
+                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
+            ),
             "output_proj.weight": o_proj_weight,
         }
     )
@@ -222,7 +224,9 @@ def run_multihead_self_attention_with_rope(
     mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
     mhsa.load_state_dict(
         {
-            "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
+            "w_qkv.weight": torch.cat(
+                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
+            ),
             "output_proj.weight": o_proj_weight,
         }
     )
@@ -329,7 +333,9 @@ def run_transformer_block(
         for k, v in state_dict.items():
             if k not in attn_proj:
                 new_state_dict[k] = v
-        new_state_dict["attn.w_qkv.weight"] = torch.cat([state_dict[t] for t in attn_proj])
+        new_state_dict["attn.w_qkv.weight"] = torch.cat(
+            [state_dict[t] for t in attn_proj]
+        )
         return new_state_dict
 
     transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
@@ -563,7 +569,9 @@ def run_cross_entropy(
     return cross_entropy_loss(inputs, targets)
 
 
-def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+def run_gradient_clipping(
+    parameters: Iterable[torch.nn.Parameter], max_l2_norm: float
+) -> None:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
 
     Args:
