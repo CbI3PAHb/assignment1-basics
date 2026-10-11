@@ -15,13 +15,14 @@ def get_batch(
         high=dataset.shape[0] - context_length,
         size=(batch_size,),
     )
-    inputs: Int[Tensor, "batch_size context_length"] = torch.stack(
-        [torch.from_numpy(dataset[i : i + context_length]).to(torch.int64) for i in indexes]
+    # Copy only the sampled windows; the source may be a read-only memory map.
+    windows = np.stack(
+        [dataset[i : i + context_length + 1] for i in indexes.tolist()],
+        dtype=np.int64,
     )
+    inputs = torch.from_numpy(windows[:, :-1].copy())
+    targets = torch.from_numpy(windows[:, 1:].copy())
 
-    targets: Int[Tensor, "batch_size context_length"] = torch.stack(
-        [torch.from_numpy(dataset[i + 1 : i + 1 + context_length]).to(torch.int64) for i in indexes]
-    )
     if "cuda" in device:
         inputs = inputs.pin_memory().to(device, non_blocking=True)
         targets = targets.pin_memory().to(device, non_blocking=True)

@@ -16,13 +16,13 @@ cs336_basics/
     └── trainer.py          # цикл обучения
 ```
 
-For dry-run - only check training config:
+For train:
 ```bash
 uv run cs336-basics train run --config experiment.yaml
 uv run cs336-basics train run --config /home/parii-artem/wip/EFDL/assignment1-basics/cs336_basics/training/training_presets/train_small_adamw.yaml
 ```
 
-For train:
+For dry-run - only check training config:
 ```bash
 uv run cs336-basics train config --config experiment.yaml
 ```
