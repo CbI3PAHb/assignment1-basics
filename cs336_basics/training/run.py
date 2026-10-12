@@ -3,14 +3,14 @@
 from functools import partial
 
 import torch
-from build import build_lr_schedule, build_model, build_optimizer, load_dataset
-from training.trainer import Trainer
 
 from cs336_basics.checkpoint.checkpoint import load_checkpoint
 from cs336_basics.dataloader.dataloader import get_batch
 from cs336_basics.training.reproducibility import seed_everything
 
+from .build import build_lr_schedule, build_model, build_optimizer, load_dataset
 from .config.experiment import ExperimentConfig
+from .trainer import Trainer
 
 
 def run_training(config: ExperimentConfig) -> None:
@@ -83,3 +83,5 @@ def run_training(config: ExperimentConfig) -> None:
         lr_schedule=lr_schedule,
         completed_steps=completed_steps,
     )
+
+    trainer.train()

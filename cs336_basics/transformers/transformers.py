@@ -237,7 +237,7 @@ class MultiHeadSelfAttention(nn.Module):
             k = self.rope(k, token_positions)
 
         seq_len = x.shape[-2]
-        mask = torch.tril(torch.ones(size=(seq_len, seq_len), dtype=torch.bool))
+        mask = torch.tril(torch.ones(size=(seq_len, seq_len), dtype=torch.bool, device=x.device))
         a = scaled_dot_product_attention(q, k, v, mask)
         a = einops.rearrange(a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)")
         return self.output_proj(a)

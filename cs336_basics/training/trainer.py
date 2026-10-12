@@ -2,11 +2,9 @@ from typing import Callable
 
 import torch
 import torch.nn as nn
-from torch.optim import Optimizer
 
-from cs336_basics.optimizer import AdamW
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
-from cs336_basics.transformers.transformers import TransformerLM, cross_entropy_loss
+from cs336_basics.transformers.transformers import cross_entropy_loss
 
 from .config import (
     BatchingConfig,
@@ -29,7 +27,7 @@ class Trainer:
         loop: LoopConfig,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
-        next_batch: Callable,
+        next_batch: Callable[[], tuple],
         lr_schedule: Callable[[int], float],
         completed_steps: int,
     ) -> None:
@@ -42,8 +40,8 @@ class Trainer:
 
     def train(self) -> None:
         while self.completed_steps < self.loop.max_steps:
-            self.completed_steps += 1
             self.train_step()
+            self.completed_steps += 1
 
     def train_step(self) -> torch.Tensor:
         lr = self.lr_schedule(self.completed_steps)
@@ -56,11 +54,20 @@ class Trainer:
         for _ in range(self.loop.gradient_accumulation_steps):
             inputs, targets = self.next_batch()
             logits = self.model(inputs)
-            loss = cross_entropy_loss(inputs=logits, targets=targets)
+            loss = cross_entropy_loss(logits=inputs, targets=targets)
 
             (loss / self.loop.gradient_accumulation_steps).backward()
 
         gradient_clipping(self.model.parameters(), max_l2_norm=self.loop.max_grad_norm)
         self.optimizer.step()
+
+        if (
+            self.completed_steps > 0
+            and self.completed_steps % config.checkpoint.save_every_steps == 0
+        ):
+            output_file = config.output_dir / f"{self.completed_steps:10.d}"
+            save_checkpoint(
+                self.model, self.optimizer, self.completed_steps, output_file
+            )
 
         return loss.detach()
