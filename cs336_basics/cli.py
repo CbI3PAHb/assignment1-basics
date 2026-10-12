@@ -11,7 +11,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse a training action and exactly one YAML config path."""
     parser = argparse.ArgumentParser(prog="cs336-basics")
     commands = parser.add_subparsers(dest="command", required=True)
-    train_parser = commands.add_parser("train", help="View a configuration or run training.")
+    train_parser = commands.add_parser(
+        "train", help="View a configuration or run training."
+    )
     train_parser.add_argument("action", choices=("run", "config"))
     train_parser.add_argument(
         "--config",

@@ -18,7 +18,9 @@ class ModelConfig:
     num_layers: int = attrs.field(validator=_POSITIVE_INTEGER)
     num_heads: int = attrs.field(validator=_POSITIVE_INTEGER)
     d_ff: int = attrs.field(validator=_POSITIVE_INTEGER)
-    rope_theta: float = attrs.field(default=DEFAULT_ROPE_THETA, validator=_POSITIVE_NUMBER)
+    rope_theta: float = attrs.field(
+        default=DEFAULT_ROPE_THETA, validator=_POSITIVE_NUMBER
+    )
 
     def __attrs_post_init__(self) -> None:
         if self.d_model % self.num_heads != 0:
@@ -27,4 +29,6 @@ class ModelConfig:
             )
         head_dimension = self.d_model // self.num_heads
         if head_dimension % 2 != 0:
-            raise ConfigError(f"attention head dimension must be even for RoPE, got {head_dimension}")
+            raise ConfigError(
+                f"attention head dimension must be even for RoPE, got {head_dimension}"
+            )

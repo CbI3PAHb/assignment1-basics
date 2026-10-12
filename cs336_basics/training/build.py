@@ -21,7 +21,9 @@ def build_model(config: ModelConfig) -> TransformerLM:
     return TransformerLM(**attrs.asdict(config, recurse=False))
 
 
-def build_optimizer(config: OptimizerConfig, parameters: Iterable[Parameter]) -> Optimizer:
+def build_optimizer(
+    config: OptimizerConfig, parameters: Iterable[Parameter]
+) -> Optimizer:
     """Construct an optimizer for the supplied model parameters."""
     kwargs = attrs.asdict(config, recurse=False)
     optimizer_type = kwargs.pop("type")
@@ -56,6 +58,7 @@ def build_lr_schedule(
     """Return a function mapping the optimizer update index to a learning rate."""
     match config.type:
         case "cosine":
+
             def schedule(it: int) -> float:
                 return cosine_lr_scheduler(
                     it=it,

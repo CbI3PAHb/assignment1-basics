@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-import yaml
 import cattrs
+import yaml
 
 from ._cattrs import _make_converter
 from ._errors import ConfigError
@@ -23,7 +23,9 @@ def load_experiment(path: Path) -> ExperimentConfig:
         raw = yaml.load(config_file, Loader=_UniqueKeyLoader)
 
     if not isinstance(raw, dict):
-        raise ConfigError(f"experiment YAML must contain a mapping, got {type(raw).__name__}")
+        raise ConfigError(
+            f"experiment YAML must contain a mapping, got {type(raw).__name__}"
+        )
 
     return _CONVERTER.structure(raw, ExperimentConfig)
 

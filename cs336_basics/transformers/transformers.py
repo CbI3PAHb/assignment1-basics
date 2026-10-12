@@ -23,10 +23,14 @@ class LinearModule(nn.Module):
         data = torch.empty(size=(out_features, in_features), device=device, dtype=dtype)
         mean = 0.0
         std = (2.0 / (in_features + out_features)) ** 0.5
-        torch.nn.init.trunc_normal_(tensor=data, mean=mean, std=std, a=-3 * std, b=3 * std)
+        torch.nn.init.trunc_normal_(
+            tensor=data, mean=mean, std=std, a=-3 * std, b=3 * std
+        )
         self.weight = nn.Parameter(data)
 
-    def forward(self, x: Float[Tensor, "... in_features"]) -> Float[Tensor, "... out_features"]:
+    def forward(
+        self, x: Float[Tensor, "... in_features"]
+    ) -> Float[Tensor, "... out_features"]:
         return einops.einsum(
             x,
             self.weight,
@@ -74,7 +78,11 @@ class RMSNormModule(nn.Module):
     def forward(self, x: Float[Tensor, "... d_model"]) -> Float[Tensor, "... d_model"]:
         in_dtype = x.dtype
         x = x.to(torch.float32)
-        result = x / (x.pow(2).sum(-1, keepdim=True) / self.d_model + self.eps).sqrt() * self.weight
+        result = (
+            x
+            / (x.pow(2).sum(-1, keepdim=True) / self.d_model + self.eps).sqrt()
+            * self.weight
+        )
         return result.to(in_dtype)
 
 
@@ -92,7 +100,11 @@ class FFN(nn.Module):
     ):
         super().__init__()
         self.d_model = d_model
-        self.d_ffn = d_ffn if d_ffn is not None else self._make_d_ffn_divisible_by_k(self.d_model, 64)
+        self.d_ffn = (
+            d_ffn
+            if d_ffn is not None
+            else self._make_d_ffn_divisible_by_k(self.d_model, 64)
+        )
 
         self.w1 = LinearModule(self.d_model, self.d_ffn, device=device, dtype=dtype)
         self.w3 = LinearModule(self.d_model, self.d_ffn, device=device, dtype=dtype)
@@ -121,11 +133,16 @@ class RoPE(nn.Module):
         self.qk_head_dim = qk_head_dim
         self.max_seq_len = max_seq_len
 
-        seq_dim: Float[Tensor, "max_seq_len"] = torch.arange(0, self.max_seq_len, dtype=torch.float32, device=device)
-        inv_freqs: Float[Tensor, "qk_head_dim"] = theta ** -(
-            torch.arange(0, self.qk_head_dim, 2, dtype=torch.float32, device=device) / self.qk_head_dim
+        seq_dim: Float[Tensor, "max_seq_len"] = torch.arange(
+            0, self.max_seq_len, dtype=torch.float32, device=device
         )
-        freqs: Float[Tensor, "max_seq_len qk_head_dim"] = einops.einsum(seq_dim, inv_freqs, "i, j -> i j")
+        inv_freqs: Float[Tensor, "qk_head_dim"] = theta ** -(
+            torch.arange(0, self.qk_head_dim, 2, dtype=torch.float32, device=device)
+            / self.qk_head_dim
+        )
+        freqs: Float[Tensor, "max_seq_len qk_head_dim"] = einops.einsum(
+            seq_dim, inv_freqs, "i, j -> i j"
+        )
 
         self.register_buffer("cos", freqs.cos(), persistent=False)
         self.register_buffer("sin", freqs.sin(), persistent=False)
@@ -142,7 +159,9 @@ class RoPE(nn.Module):
             raise ValueError(f"got {pos_ids.shape[-1]=}, {x.shape[-2]=}")
 
         if seq_len > self.max_seq_len:
-            raise ValueError(f"Sequence len = ({seq_len}) is greater than max seq len = ({self.max_seq_len}).")
+            raise ValueError(
+                f"Sequence len = ({seq_len}) is greater than max seq len = ({self.max_seq_len})."
+            )
 
         if pos_ids is None:
             sin = self.sin[:seq_len, :]
@@ -151,7 +170,9 @@ class RoPE(nn.Module):
             sin = self.sin[pos_ids, :]
             cos = self.cos[pos_ids, :]
 
-        odds, evens = einops.rearrange(x, "... (half_d_model two) -> two ... half_d_model", two=2)
+        odds, evens = einops.rearrange(
+            x, "... (half_d_model two) -> two ... half_d_model", two=2
+        )
         new_odds = odds * cos - evens * sin
         new_evens = odds * sin + evens * cos
 
@@ -160,7 +181,9 @@ class RoPE(nn.Module):
         # evens      = [   1,    3,    5, ...]
         # rearranged = [0, 1, 2, 3, 4, 5, ...]
         return (
-            einx.rearrange("... x_half, ... x_half -> ... (x_half (1 + 1))", new_odds, new_evens)
+            einx.rearrange(
+                "... x_half, ... x_half -> ... (x_half (1 + 1))", new_odds, new_evens
+            )
             .contiguous()
             .to(input_dtype)
         )
@@ -219,7 +242,11 @@ class MultiHeadSelfAttention(nn.Module):
         self.head_dim = self.d_model // self.n_heads
         self.w_qkv = LinearModule(d_model, 3 * self.n_heads * self.head_dim)
         self.output_proj = LinearModule(self.n_heads * self.head_dim, d_model)
-        self.rope = RoPE(theta=theta, qk_head_dim=self.head_dim, max_seq_len=max_seq_len) if theta else None
+        self.rope = (
+            RoPE(theta=theta, qk_head_dim=self.head_dim, max_seq_len=max_seq_len)
+            if theta
+            else None
+        )
 
     def forward(
         self,
@@ -237,21 +264,29 @@ class MultiHeadSelfAttention(nn.Module):
             k = self.rope(k, token_positions)
 
         seq_len = x.shape[-2]
-        mask = torch.tril(torch.ones(size=(seq_len, seq_len), dtype=torch.bool, device=x.device))
+        mask = torch.tril(
+            torch.ones(size=(seq_len, seq_len), dtype=torch.bool, device=x.device)
+        )
         a = scaled_dot_product_attention(q, k, v, mask)
-        a = einops.rearrange(a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)")
+        a = einops.rearrange(
+            a, "n_heads ... seq_len head_dim -> ... seq_len (n_heads head_dim)"
+        )
         return self.output_proj(a)
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, max_seq_len: int, theta: float):
+    def __init__(
+        self, d_model: int, num_heads: int, d_ff: int, max_seq_len: int, theta: float
+    ):
         super().__init__()
         self.ln1 = RMSNormModule(d_model)
         self.attn = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
         self.ln2 = RMSNormModule(d_model)
         self.ffn = FFN(d_model, d_ff)
 
-    def forward(self, x: Float[Tensor, "... seq_len d_model"]) -> Float[Tensor, "... seq_len d_model"]:
+    def forward(
+        self, x: Float[Tensor, "... seq_len d_model"]
+    ) -> Float[Tensor, "... seq_len d_model"]:
         x = x + self.attn(self.ln1(x))
         x = x + self.ffn(self.ln2(x))
         return x
@@ -269,9 +304,14 @@ class TransformerLM(nn.Module):
         rope_theta: float,
     ):
         super().__init__()
-        self.token_embeddings = EmbeddingModule(num_embeddings=vocab_size, embedding_dim=d_model)
+        self.token_embeddings = EmbeddingModule(
+            num_embeddings=vocab_size, embedding_dim=d_model
+        )
         self.layers = nn.ModuleList(
-            [TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta) for _ in range(num_layers)]
+            [
+                TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta)
+                for _ in range(num_layers)
+            ]
         )
         self.ln_final = RMSNormModule(d_model)
         self.lm_head = LinearModule(d_model, vocab_size)

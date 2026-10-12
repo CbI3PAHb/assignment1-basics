@@ -45,8 +45,7 @@ def run_training(config: ExperimentConfig) -> None:
     batching = config.data.batching
     if train_dataset.size <= batching.sequence_length:
         raise ValueError(
-            f"Dataset must contain at least {batching.sequence_length + 1} tokens, "
-            f"got {train_dataset.size}"
+            f"Dataset must contain at least {batching.sequence_length + 1} tokens, got {train_dataset.size}"
         )
 
     seed_everything(config.seed)
@@ -54,9 +53,7 @@ def run_training(config: ExperimentConfig) -> None:
     model = model.to(config.runtime.device)
 
     optimizer = build_optimizer(config.optimizer, model.parameters())
-    lr_schedule = build_lr_schedule(
-        config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps
-    )
+    lr_schedule = build_lr_schedule(config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps)
 
     completed_steps = 0
     checkpoint = config.checkpoint

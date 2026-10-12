@@ -93,7 +93,9 @@ def setup_logging(
         if json_logger.hasHandlers():
             json_logger.handlers.clear()
 
-        json_file_handler = logging.FileHandler(json_log_file, mode="w", encoding="utf-8")
+        json_file_handler = logging.FileHandler(
+            json_log_file, mode="w", encoding="utf-8"
+        )
         json_formatter = logging.Formatter("%(message)s")
         json_file_handler.setFormatter(json_formatter)
         json_logger.addHandler(json_file_handler)

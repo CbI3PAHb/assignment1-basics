@@ -9,7 +9,9 @@ def get_batch(
     batch_size: int,
     context_length: int,
     device: str,
-) -> tuple[Int[Tensor, "batch_size context_length"], Int[Tensor, "batch_size context_length"]]:
+) -> tuple[
+    Int[Tensor, "batch_size context_length"], Int[Tensor, "batch_size context_length"]
+]:
     indexes = torch.randint(
         low=0,
         high=dataset.shape[0] - context_length,

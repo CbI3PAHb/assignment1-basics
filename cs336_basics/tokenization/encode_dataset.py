@@ -64,7 +64,9 @@ def encode_dataset(
         raise RuntimeError(f"{output_path} already exists")
 
     if document_separator not in tokenizer.special_tokens:
-        raise ValueError(f"Document separator {document_separator!r} must be a tokenizer special token")
+        raise ValueError(
+            f"Document separator {document_separator!r} must be a tokenizer special token"
+        )
 
     if tokenizer.vocab_size - 1 > np.iinfo(np.uint16).max:
         raise RuntimeError(f"got {tokenizer.vocab_size}")
@@ -79,7 +81,9 @@ def encode_dataset(
             token_count = 0
             token_buffer: list[int] = []
 
-            documents = iter_documents(input_file, document_separator, read_size=8 * 1024 * 1024)
+            documents = iter_documents(
+                input_file, document_separator, read_size=8 * 1024 * 1024
+            )
             token_ids = tokenizer.encode_iterable(documents)
 
             for token_id in token_ids:
@@ -107,7 +111,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-path", type=Path, required=True)
     parser.add_argument("--tokenizer-file-path", type=Path, required=True)
     parser.add_argument("--document-separator", type=str, default="<|endoftext|>")
-    parser.add_argument("--write-buffer-tokens", type=int, default=1024 * 1024)  # 1M tokens
+    parser.add_argument(
+        "--write-buffer-tokens", type=int, default=1024 * 1024
+    )  # 1M tokens
     return parser.parse_args(argv)
 
 

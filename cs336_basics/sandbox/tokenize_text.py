@@ -68,7 +68,9 @@ def parse_args():
         default=None,
         help="if present - logging debug information in this file.",
     )
-    parser.add_argument("--silent", action="store_true", help="Disable output logs into console.")
+    parser.add_argument(
+        "--silent", action="store_true", help="Disable output logs into console."
+    )
     return parser.parse_args()
 
 

@@ -36,6 +36,8 @@ _BETAS = attrs.validators.and_(
     attrs.validators.min_len(2),
     attrs.validators.max_len(2),
     attrs.validators.deep_iterable(
-        member_validator=attrs.validators.and_(_NONNEGATIVE_NUMBER, attrs.validators.lt(1)),
+        member_validator=attrs.validators.and_(
+            _NONNEGATIVE_NUMBER, attrs.validators.lt(1)
+        ),
     ),
 )

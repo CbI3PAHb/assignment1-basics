@@ -21,7 +21,9 @@ class Tokenizer:
     ):
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens: list[str] | tuple[str, ...] | None = tuple(special_tokens or ())
+        self.special_tokens: list[str] | tuple[str, ...] | None = tuple(
+            special_tokens or ()
+        )
         self.inverse_vocab = {v: k for k, v in self.vocab.items()}
         self.pair_ranks: dict[tuple[bytes, bytes], int] = self._prepare_pair_ranks()
 
@@ -73,7 +75,11 @@ class Tokenizer:
             if min_pair is None:
                 break
 
-            tokens = tokens[:min_pair_index] + (min_pair[0] + min_pair[1],) + tokens[min_pair_index + 2 :]
+            tokens = (
+                tokens[:min_pair_index]
+                + (min_pair[0] + min_pair[1],)
+                + tokens[min_pair_index + 2 :]
+            )
         # return [self.inverse_vocab[token] for token in tokens]
         return tuple(self.inverse_vocab[token] for token in tokens)
 

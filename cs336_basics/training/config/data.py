@@ -32,10 +32,16 @@ class DatasetConfig:
     """A flat, already tokenized binary file; dtype describes its stored token IDs"""
 
     path: Path = attrs.field(converter=_to_path)
-    dtype: DatasetDType = attrs.field(default="uint16", validator=attrs.validators.in_(SUPPORTED_DATASET_DTYPES))
+    dtype: DatasetDType = attrs.field(
+        default="uint16", validator=attrs.validators.in_(SUPPORTED_DATASET_DTYPES)
+    )
 
 
 @attrs.frozen(kw_only=True)
 class DataConfig:
-    train: DatasetConfig = attrs.field(validator=attrs.validators.instance_of(DatasetConfig))
-    batching: BatchingConfig = attrs.field(validator=attrs.validators.instance_of(BatchingConfig))
+    train: DatasetConfig = attrs.field(
+        validator=attrs.validators.instance_of(DatasetConfig)
+    )
+    batching: BatchingConfig = attrs.field(
+        validator=attrs.validators.instance_of(BatchingConfig)
+    )

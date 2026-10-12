@@ -10,7 +10,9 @@ from yaml.nodes import MappingNode
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
-    def construct_mapping(self, node: MappingNode, deep: bool = False) -> dict[object, object]:
+    def construct_mapping(
+        self, node: MappingNode, deep: bool = False
+    ) -> dict[object, object]:
         # Check the resulting mapping, including keys brought in by YAML merges.
         self.flatten_mapping(node)
         seen: dict[Hashable, Mark] = {}

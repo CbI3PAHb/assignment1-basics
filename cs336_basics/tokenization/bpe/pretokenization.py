@@ -80,7 +80,9 @@ def find_safe_chunk_boundaries(
 
     # Initial guesses for chunk boundary locations, uniformly spaced
     # Chunks start on previous index, don't include last index
-    chunk_boundaries = [i * approximate_chunk_size for i in range(desired_num_chunks + 1)]
+    chunk_boundaries = [
+        i * approximate_chunk_size for i in range(desired_num_chunks + 1)
+    ]
     chunk_boundaries[-1] = file_size
 
     mini_chunk_size = 4096  # Read ahead by 4k bytes at a time
@@ -89,7 +91,9 @@ def find_safe_chunk_boundaries(
             initial_position = chunk_boundaries[bi]
             while True:
                 file.seek(initial_position)  # Start at boundary guess
-                mini_chunk = file.read(mini_chunk_size + len(split_token) - 1)  # Read a mini chunk + overlapping
+                mini_chunk = file.read(
+                    mini_chunk_size + len(split_token) - 1
+                )  # Read a mini chunk + overlapping
 
                 # If EOF, this boundary should be at the end of the file
                 if mini_chunk == b"":
@@ -117,14 +121,18 @@ def _count_pretokens_in_chunk(task: ChunkTask) -> Counter[Pretoken]:
         file.seek(task.start_byte)
         chunk = file.read(task.end_byte - task.start_byte).decode("utf-8")
 
-    special_token_pattern = "|".join(re.escape(token) for token in sorted(task.special_tokens, key=len, reverse=True))
+    special_token_pattern = "|".join(
+        re.escape(token) for token in sorted(task.special_tokens, key=len, reverse=True)
+    )
 
     text_parts = re.split(special_token_pattern, chunk)
     freqs: Counter[Pretoken] = Counter()
 
     for text_part in text_parts:
         for match in re.finditer(PAT, text_part):
-            pretoken: Pretoken = tuple(bytes([byte]) for byte in match.group().encode("utf-8"))
+            pretoken: Pretoken = tuple(
+                bytes([byte]) for byte in match.group().encode("utf-8")
+            )
             freqs[pretoken] += 1
 
     return freqs
@@ -157,7 +165,9 @@ def count_pretokens(
     input_path = Path(input_path)
     file_size = input_path.stat().st_size
 
-    desired_num_chunks = calculate_num_chunks(file_size=file_size, chunk_size=chunk_size)
+    desired_num_chunks = calculate_num_chunks(
+        file_size=file_size, chunk_size=chunk_size
+    )
 
     logger.info(
         "Counting pretokens: path=%s, size=%d, workers=%d, desired_chunks=%d",
@@ -184,7 +194,9 @@ def count_pretokens(
     num_workers = min(n_process, len(tasks))
     freqs: Counter[Pretoken] = Counter()
 
-    for partial_count in tqdm.tqdm(_iter_chunk_counts(tasks, num_workers), total=len(tasks)):
+    for partial_count in tqdm.tqdm(
+        _iter_chunk_counts(tasks, num_workers), total=len(tasks)
+    ):
         freqs.update(partial_count)
 
     logger.info(

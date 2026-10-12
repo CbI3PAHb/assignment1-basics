@@ -11,7 +11,9 @@ def _structure_integer(value: object, _type: type[int]) -> int:
 
 def _structure_float(value: object, _type: type[float]) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"expected int or float, got {value!r} ({type(value).__name__})")
+        raise TypeError(
+            f"expected int or float, got {value!r} ({type(value).__name__})"
+        )
     return value
 
 

@@ -57,7 +57,9 @@ class BPETrainer:
         self.special_tokens: tuple[str, ...] = special_tokens
         self.heap_after: int = heap_after
 
-        self.vocabulary: Vocabulary = {token_id: bytes([token_id]) for token_id in range(256)}
+        self.vocabulary: Vocabulary = {
+            token_id: bytes([token_id]) for token_id in range(256)
+        }
         self.merges: list[Merge] = []
         self.words: dict[int, Pretoken] = {}
         self.word_frequencies: dict[int, int] = {}
@@ -80,7 +82,9 @@ class BPETrainer:
     def train(self) -> tuple[Vocabulary, list[Merge]]:
         """Run merge iterations and append special tokens."""
 
-        num_merge_slots = self.vocab_size - len(self.special_tokens) - len(self.vocabulary)
+        num_merge_slots = (
+            self.vocab_size - len(self.special_tokens) - len(self.vocabulary)
+        )
 
         for merge_iteration in tqdm(range(num_merge_slots), total=num_merge_slots):
             if not self.pair_frequencies:
@@ -159,7 +163,9 @@ class BPETrainer:
             for changed_pair in changed_pairs:
                 freq = self.pair_frequencies.get(changed_pair)
                 if freq is not None:
-                    heapq.heappush(self.pair_heap, (-freq, _ReverseLexPair(changed_pair)))
+                    heapq.heappush(
+                        self.pair_heap, (-freq, _ReverseLexPair(changed_pair))
+                    )
 
     def _create_new_word(
         self,
@@ -178,7 +184,10 @@ class BPETrainer:
         return tuple(new_word_parts)
 
     def _build_pair_heap(self) -> None:
-        self.pair_heap = [(-frequency, _ReverseLexPair(pair)) for pair, frequency in self.pair_frequencies.items()]
+        self.pair_heap = [
+            (-frequency, _ReverseLexPair(pair))
+            for pair, frequency in self.pair_frequencies.items()
+        ]
         heapq.heapify(self.pair_heap)
 
         logger.info(f"created pair heap, with len={len(self.pair_heap)}")
@@ -195,7 +204,9 @@ def _validate_training_arguments(
     """Validate public API arguments before expensive work starts."""
 
     if vocab_size < 256 + len(special_tokens):
-        raise ValueError(f"vocab_size must be >= {256 + len(special_tokens)}, but got {vocab_size}")
+        raise ValueError(
+            f"vocab_size must be >= {256 + len(special_tokens)}, but got {vocab_size}"
+        )
 
     if chunk_size <= 0:
         raise ValueError(f"chunk_size must be > 0, but got {chunk_size}")

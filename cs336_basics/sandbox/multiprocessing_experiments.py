@@ -60,7 +60,9 @@ def test():
         # Tests
         #
         N_ITERS = 10
-        TASKS = [(mul, (i, 7)) for i in range(N_ITERS)] + [(plus, (i, 8)) for i in range(N_ITERS)]
+        TASKS = [(mul, (i, 7)) for i in range(N_ITERS)] + [
+            (plus, (i, 8)) for i in range(N_ITERS)
+        ]
 
         results = [pool.apply_async(calculate, t) for t in TASKS]
         imap_it = pool.imap(calculatestar, TASKS)
