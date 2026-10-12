@@ -1,51 +1,63 @@
 """Assemble an experiment and run its training loop."""
 
 from functools import partial
+from pathlib import Path
 
 import torch
 
-from cs336_basics.checkpoint.checkpoint import load_checkpoint
+from cs336_basics.checkpoint.checkpoint import load_checkpoint, load_model_weights
 from cs336_basics.dataloader.dataloader import get_batch
 from cs336_basics.training.reproducibility import seed_everything
 
 from .build import build_lr_schedule, build_model, build_optimizer, load_dataset
 from .config.experiment import ExperimentConfig
+from .config.io import dump_experiment
 from .trainer import Trainer
 
 
+def _prepare_output(output_dir: Path, config_yaml: str) -> None:
+    output_dir.mkdir(parents=True, exist_ok=False)
+    config_path = output_dir / "config.yaml"
+    config_created = False
+    try:
+        with config_path.open("x", encoding="utf-8") as config_file:
+            config_created = True
+            config_file.write(config_yaml)
+    except BaseException:
+        # Remove only our new config and directory; preserve unrelated files.
+        try:
+            if config_created:
+                config_path.unlink(missing_ok=True)
+            output_dir.rmdir()
+        except OSError:
+            pass
+        raise
+
+
 def run_training(config: ExperimentConfig) -> None:
-    """Construct training components and execute training.
-
-    TODO: validate runtime resources, seed random generators, prepare output,
-    construct and place the model, then build its optimizer, dataset and LR
-    schedule. Apply checkpoint initialization or resume, execute Trainer, and
-    close resources. Save the resolved experiment config with run artifacts.
-    """
-    # 1. seed
-    seed_everything(config.seed)
-
-    # 2. prepare output
+    """Prepare a new run directory, restore optional state, and execute training."""
     if config.output_dir.exists():
-        raise RuntimeError(f"working dir ({config.output_dir!r})")
+        raise FileExistsError(f"Output directory already exists: {config.output_dir}")
+    if config.runtime.device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested, but no CUDA device is available")
 
-    # there is important not to get race condition
-    config.output_dir.mkdir(parents=True, exist_ok=True)
+    train_dataset = load_dataset(config.data.train)
+    batching = config.data.batching
+    if train_dataset.size <= batching.sequence_length:
+        raise ValueError(
+            f"Dataset must contain at least {batching.sequence_length + 1} tokens, "
+            f"got {train_dataset.size}"
+        )
 
-    # 3. construct model and place to device
+    seed_everything(config.seed)
     model = build_model(config.model)
     model = model.to(config.runtime.device)
 
-    # 4. construct optimizer and lr scheduler
     optimizer = build_optimizer(config.optimizer, model.parameters())
     lr_schedule = build_lr_schedule(
         config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps
     )
 
-    # 5. train dataset (who the fuck need validation dataset, lol)
-    train_dataset = load_dataset(config.data.train)
-
-    # ========================================================
-    # 6. resume from and init weights from
     completed_steps = 0
     checkpoint = config.checkpoint
 
@@ -56,17 +68,9 @@ def run_training(config: ExperimentConfig) -> None:
             optimizer=optimizer,
         )
 
-    # this is not the place for this function
     elif checkpoint.init_weights_from is not None:
-        artifact = torch.load(
-            checkpoint.init_weights_from,
-            map_location="cpu",
-            weights_only=True,
-        )
-        model.load_state_dict(artifact["model_state_dict"])
-    # ========================================================
+        load_model_weights(src=checkpoint.init_weights_from, model=model)
 
-    batching = config.data.batching
     next_batch = partial(
         get_batch,
         dataset=train_dataset,
@@ -82,6 +86,9 @@ def run_training(config: ExperimentConfig) -> None:
         next_batch=next_batch,
         lr_schedule=lr_schedule,
         completed_steps=completed_steps,
+        checkpoint=checkpoint,
+        output_dir=config.output_dir,
     )
 
+    _prepare_output(config.output_dir, dump_experiment(config))
     trainer.train()

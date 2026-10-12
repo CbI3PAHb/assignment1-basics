@@ -26,7 +26,16 @@ def load_checkpoint(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
 ) -> int:
-    artifact = torch.load(src)
+    artifact = torch.load(src, map_location="cpu", weights_only=True)
     model.load_state_dict(artifact["model_state_dict"])
     optimizer.load_state_dict(artifact["optimizer_state_dict"])
     return artifact["iteration"]
+
+
+def load_model_weights(
+    src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+    model: nn.Module,
+) -> None:
+    """Initialize only the model from a training checkpoint."""
+    artifact = torch.load(src, map_location="cpu", weights_only=True)
+    model.load_state_dict(artifact["model_state_dict"])
