@@ -2,15 +2,26 @@ from typing import Callable
 
 import torch
 import torch.nn as nn
-from cs336_systems.model_presets import ModelConfig, build_model
-from cs336_systems.training.config import OptimizerConfig, TrainerConfig, TrainingConfig
 from torch.optim import Optimizer
 
-from cs336_basics.data import get_batch, load_dataset
-from cs336_basics.nn_utils import cross_entropy
 from cs336_basics.optimizer import AdamW
-
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
+from cs336_basics.transformers.transformers import TransformerLM, cross_entropy_loss
+
+from .config import (
+    BatchingConfig,
+    CheckpointConfig,
+    ConfigError,
+    DataConfig,
+    DatasetConfig,
+    ExperimentConfig,
+    LoopConfig,
+    ModelConfig,
+    OptimizerConfig,
+    RuntimeConfig,
+    SchedulerConfig,
+)
+
 
 class Trainer:
     def __init__(
@@ -40,12 +51,12 @@ class Trainer:
             group["lr"] = lr
 
         # self.optimizer.zero_grad()
-        self.optimizer.zero_grad(set_to_none=True) # ???
+        self.optimizer.zero_grad(set_to_none=True)  # ???
 
         for _ in range(self.loop.gradient_accumulation_steps):
             inputs, targets = self.next_batch()
             logits = self.model(inputs)
-            loss = cross_entropy(inputs=logits, targets=targets)
+            loss = cross_entropy_loss(inputs=logits, targets=targets)
 
             (loss / self.loop.gradient_accumulation_steps).backward()
 
