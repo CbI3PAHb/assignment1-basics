@@ -35,13 +35,26 @@ class Trainer:
         self.output_dir = output_dir
 
     def train(self) -> None:
+        last_saved_step = None
         while self.completed_steps < self.loop.max_steps:
             self.train_step()
             self.completed_steps += 1
 
-            save_every_steps = self.checkpoint.save_every_steps
-            if save_every_steps is not None and self.completed_steps % save_every_steps == 0:
+            interval = self.checkpoint.save_checkpoint_interval
+            if (
+                self.checkpoint.save_checkpoint
+                and interval is not None
+                and self.completed_steps % interval == 0
+            ):
                 self._save_checkpoint()
+                last_saved_step = self.completed_steps
+
+        if (
+            self.checkpoint.save_checkpoint
+            and self.checkpoint.save_checkpoint_at_the_end
+            and last_saved_step != self.completed_steps
+        ):
+            self._save_checkpoint()
 
     def _save_checkpoint(self) -> None:
         output_file = self.output_dir / f"checkpoint_{self.completed_steps:010d}.pt"

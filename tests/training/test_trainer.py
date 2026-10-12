@@ -106,7 +106,7 @@ def test_failed_update_does_not_advance_counter(model, batches, tmp_path):
 
 def test_checkpoint_failure_does_not_repeat_successful_update(model, batches, tmp_path, monkeypatch):
     trainer = make_trainer(model, tmp_path, batches)
-    trainer.checkpoint = CheckpointConfig(save_every_steps=1)
+    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=1)
 
     def fail_save(**kwargs):
         raise OSError("checkpoint write failed")

@@ -67,7 +67,7 @@ def cpu_experiment(minimal_experiment, built_components):
     minimal_experiment["runtime"] = {"device": "cpu"}
     minimal_experiment["optimizer"] = {"lr": 0.02}
     minimal_experiment["scheduler"] = {"min_lr": 0.001}
-    minimal_experiment["checkpoint"] = {"save_every_steps": 2}
+    minimal_experiment["checkpoint"] = {"save_checkpoint": True, "save_checkpoint_interval": 2}
     minimal_experiment["loop"]["gradient_accumulation_steps"] = 2
     _write_tokens(minimal_experiment)
     return minimal_experiment
@@ -129,16 +129,35 @@ def test_run_trains_and_saves_completed_updates_and_resolved_config(
     assert load_experiment(resolved_path) == load_experiment(config_path)
 
 
-def test_run_with_periodic_saving_disabled_still_trains(
+def test_run_with_checkpoint_saving_disabled_still_trains(
     cpu_experiment, write_experiment, built_components
 ):
-    cpu_experiment["checkpoint"]["save_every_steps"] = None
+    cpu_experiment["checkpoint"] = {"save_checkpoint": False}
     _run_cli(cpu_experiment, write_experiment)
 
     output_dir = Path(cpu_experiment["output_dir"])
     assert _saved_checkpoints(output_dir) == []
     assert (output_dir / "config.yaml").is_file()
     _assert_model_changed(built_components["models"][-1])
+
+
+@pytest.mark.parametrize("interval, expected_steps", [(None, [4]), (3, [3, 4])])
+def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_components, interval, expected_steps):
+    cpu_experiment["checkpoint"] = {
+        "save_checkpoint": True,
+        "save_checkpoint_interval": interval,
+        "save_checkpoint_at_the_end": True,
+    }
+    _run_cli(cpu_experiment, write_experiment)
+
+    checkpoints = _saved_checkpoints(Path(cpu_experiment["output_dir"]))
+    assert [artifact["iteration"] for _, artifact in checkpoints] == expected_steps
+    _assert_state_equal(
+        checkpoints[-1][1]["model_state_dict"], built_components["models"][-1]["model"].state_dict()
+    )
+    _assert_state_equal(
+        checkpoints[-1][1]["optimizer_state_dict"], built_components["optimizers"][-1]["optimizer"].state_dict()
+    )
 
 
 def test_missing_dataset_allows_retry_with_same_output_directory(
@@ -359,7 +378,8 @@ def test_init_weights_restores_model_but_resets_optimizer_and_update_count(
     cpu_experiment["output_dir"] = str(tmp_path / "initialized")
     cpu_experiment["checkpoint"] = {
         "init_weights_from": str(source_path),
-        "save_every_steps": 1,
+        "save_checkpoint": True,
+        "save_checkpoint_interval": 1,
     }
     _run_cli(cpu_experiment, write_experiment)
 

@@ -43,4 +43,6 @@ runtime:
 checkpoint:
   resume_from: null
   init_weights_from: null
-  save_every_steps: null
+  save_checkpoint: true
+  save_checkpoint_interval: null
+  save_checkpoint_at_the_end: true

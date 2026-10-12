@@ -270,6 +270,28 @@ def test_load_experiment_checks_field_relationships(tmp_path, raw_experiment, co
     )
 
 
+@pytest.mark.parametrize(
+    "checkpoint",
+    [
+        {"save_checkpoint": False, "save_checkpoint_interval": 2},
+        {"save_checkpoint": False, "save_checkpoint_at_the_end": True},
+        {"save_checkpoint": True},
+    ],
+    ids=["disabled-with-periodic", "disabled-with-final", "enabled-without-trigger"],
+)
+def test_load_experiment_rejects_invalid_checkpoint_policy_before_side_effects(tmp_path, raw_experiment, checkpoint):
+    raw_experiment["checkpoint"] = checkpoint
+    path = _write_yaml(tmp_path, raw_experiment)
+
+    with pytest.raises((ClassValidationError, ConfigError)) as caught:
+        load_experiment(path)
+
+    assert any(isinstance(error, ConfigError) for error in exception_leaves(caught.value))
+    assert list(tmp_path.iterdir()) == [path]
+    assert not Path(raw_experiment["output_dir"]).exists()
+    assert not Path(raw_experiment["data"]["train"]["path"]).exists()
+
+
 @pytest.mark.parametrize("content", ["", "null\n", "hello\n", "3\n", "false\n", "[]\n", "- first\n- second\n"])
 def test_load_experiment_requires_a_mapping_root(tmp_path, content):
     path = tmp_path / "experiment.yaml"
@@ -325,7 +347,13 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
     assert raw["loop"] == {"max_steps": 100, "gradient_accumulation_steps": 1, "max_grad_norm": 1.0}
     assert raw["scheduler"] == {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6}
     assert raw["runtime"] == {"device": "cuda"}
-    assert raw["checkpoint"] == {"resume_from": None, "init_weights_from": None, "save_every_steps": None}
+    assert raw["checkpoint"] == {
+        "resume_from": None,
+        "init_weights_from": None,
+        "save_checkpoint": False,
+        "save_checkpoint_interval": None,
+        "save_checkpoint_at_the_end": False,
+    }
 
 
 def test_dump_experiment_serializes_paths_and_betas_without_mutating_config(tmp_path, raw_experiment):
@@ -354,7 +382,17 @@ def test_dump_experiment_serializes_paths_and_betas_without_mutating_config(tmp_
 
 
 @pytest.mark.parametrize("checkpoint_mode", ["none", "resume", "weights"])
-def test_dump_experiment_round_trips_through_load(tmp_path, raw_experiment, checkpoint_mode):
+@pytest.mark.parametrize(
+    "save_policy",
+    [
+        {},
+        {"save_checkpoint": True, "save_checkpoint_interval": 2},
+        {"save_checkpoint": True, "save_checkpoint_at_the_end": True},
+        {"save_checkpoint": True, "save_checkpoint_interval": 2, "save_checkpoint_at_the_end": True},
+    ],
+    ids=["disabled", "periodic", "final", "periodic-and-final"],
+)
+def test_dump_experiment_round_trips_through_load(tmp_path, raw_experiment, checkpoint_mode, save_policy):
     raw_experiment["output_dir"] = "результаты/эксперимент"
     raw_experiment["seed"] = 0
     raw_experiment["model"]["rope_theta"] = 5_000
@@ -363,7 +401,7 @@ def test_dump_experiment_round_trips_through_load(tmp_path, raw_experiment, chec
     raw_experiment["loop"]["gradient_accumulation_steps"] = 2
     raw_experiment["scheduler"] = {"min_lr": 0, "warmup_steps": 1}
     raw_experiment["runtime"] = {"device": "cpu"}
-    raw_experiment["checkpoint"] = {"save_every_steps": 2}
+    raw_experiment["checkpoint"] = dict(save_policy)
     if checkpoint_mode == "resume":
         raw_experiment["checkpoint"]["resume_from"] = str(tmp_path / "state.pt")
     elif checkpoint_mode == "weights":

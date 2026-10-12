@@ -15,6 +15,12 @@ def _structure_float(value: object, _type: type[float]) -> float:
     return value
 
 
+def _structure_boolean(value: object, _type: type[bool]) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"expected a boolean, got {value!r} ({type(value).__name__})")
+    return value
+
+
 def _make_converter() -> cattrs.Converter:
     converter = cattrs.Converter(
         forbid_extra_keys=True,
@@ -23,4 +29,5 @@ def _make_converter() -> cattrs.Converter:
     )
     converter.register_structure_hook(int, _structure_integer)
     converter.register_structure_hook(float, _structure_float)
+    converter.register_structure_hook(bool, _structure_boolean)
     return converter

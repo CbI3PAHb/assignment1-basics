@@ -8,7 +8,7 @@ from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 from yaml.constructor import ConstructorError
 
 from cs336_basics import cli
-from cs336_basics.training.config import ExperimentConfig
+from cs336_basics.training.config import ConfigError, ExperimentConfig
 from cs336_basics.training.config.io import load_experiment
 
 
@@ -103,7 +103,13 @@ def test_main_config_prints_complete_yaml_without_importing_training(
         "seed": 42,
         "scheduler": {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6},
         "runtime": {"device": "cuda"},
-        "checkpoint": {"resume_from": None, "init_weights_from": None, "save_every_steps": None},
+        "checkpoint": {
+            "resume_from": None,
+            "init_weights_from": None,
+            "save_checkpoint": False,
+            "save_checkpoint_interval": None,
+            "save_checkpoint_at_the_end": False,
+        },
     }
     assert actual == expected
     assert captured.err == ""
@@ -194,3 +200,27 @@ def test_main_rejects_float_values_for_integer_fields(
 
     errors = list(_exception_leaves(excinfo.value))
     assert any(isinstance(error, TypeError) and "integer" in str(error) for error in errors)
+
+
+@pytest.mark.parametrize("action", ["config", "run"])
+@pytest.mark.parametrize(
+    "checkpoint",
+    [
+        {"save_checkpoint": False, "save_checkpoint_interval": 2},
+        {"save_checkpoint": False, "save_checkpoint_at_the_end": True},
+        {"save_checkpoint": True},
+    ],
+    ids=["disabled-with-periodic", "disabled-with-final", "enabled-without-trigger"],
+)
+def test_main_rejects_invalid_checkpoint_policy_before_importing_training(
+    minimal_experiment, write_experiment, monkeypatch, action, checkpoint
+):
+    monkeypatch.setitem(sys.modules, "cs336_basics.training.run", None)
+    minimal_experiment["checkpoint"] = checkpoint
+    path = write_experiment(minimal_experiment)
+
+    with pytest.raises((ClassValidationError, ConfigError)) as caught:
+        cli.main(["train", action, "--config", str(path)])
+
+    assert any(isinstance(error, ConfigError) for error in _exception_leaves(caught.value))
+    assert not Path(minimal_experiment["output_dir"]).exists()

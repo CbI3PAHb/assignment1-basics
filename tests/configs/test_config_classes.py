@@ -92,7 +92,7 @@ def test_zero_is_valid_for_nonnegative_settings():
     with pytest.raises(ValueError):
         SchedulerConfig(min_lr=-1)
     with pytest.raises(ValueError):
-        CheckpointConfig(save_every_steps=0)
+        CheckpointConfig(save_checkpoint_interval=0)
 
 
 def test_experiment_checks_component_compatibility(experiment):
@@ -195,13 +195,53 @@ def test_warmup_requires_nonnegative_integer(value):
 
 @pytest.mark.parametrize("value", [0, -1, 1.5, True, "10"])
 def test_checkpoint_interval_requires_positive_integer(value):
-    with pytest.raises((TypeError, ValueError), match="save_every_steps"):
-        CheckpointConfig(save_every_steps=value)
+    with pytest.raises((TypeError, ValueError), match="save_checkpoint_interval"):
+        CheckpointConfig(save_checkpoint_interval=value)
 
 
 @pytest.mark.parametrize("value", [None, 1])
 def test_checkpoint_interval_accepts_disabled_or_positive_value(value):
-    assert CheckpointConfig(save_every_steps=value).save_every_steps == value
+    config = CheckpointConfig(save_checkpoint=value is not None, save_checkpoint_interval=value)
+    assert config.save_checkpoint_interval == value
+
+
+@pytest.mark.parametrize(
+    ("save_checkpoint", "save_checkpoint_interval", "save_checkpoint_at_the_end"),
+    [(False, None, False), (True, 2, False), (True, None, True), (True, 2, True)],
+    ids=["disabled", "periodic", "final", "periodic-and-final"],
+)
+def test_checkpoint_accepts_consistent_save_policies(save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end):
+    config = CheckpointConfig(
+        save_checkpoint=save_checkpoint,
+        save_checkpoint_interval=save_checkpoint_interval,
+        save_checkpoint_at_the_end=save_checkpoint_at_the_end,
+    )
+
+    assert config.save_checkpoint is save_checkpoint
+    assert config.save_checkpoint_interval == save_checkpoint_interval
+    assert config.save_checkpoint_at_the_end is save_checkpoint_at_the_end
+
+
+@pytest.mark.parametrize(
+    ("save_checkpoint", "save_checkpoint_interval", "save_checkpoint_at_the_end"),
+    [(False, 2, False), (False, None, True), (False, 2, True), (True, None, False)],
+    ids=["disabled-with-periodic", "disabled-with-final", "disabled-with-both", "enabled-without-trigger"],
+)
+def test_checkpoint_rejects_inconsistent_save_policies(save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end):
+    with pytest.raises(ConfigError):
+        CheckpointConfig(
+            save_checkpoint=save_checkpoint,
+            save_checkpoint_interval=save_checkpoint_interval,
+            save_checkpoint_at_the_end=save_checkpoint_at_the_end,
+        )
+
+
+@pytest.mark.parametrize("field", ["save_checkpoint", "save_checkpoint_at_the_end"])
+@pytest.mark.parametrize("value", [0, 1, "false", None])
+def test_checkpoint_flags_require_booleans(field, value):
+    settings = {"save_checkpoint": True, "save_checkpoint_at_the_end": True, field: value}
+    with pytest.raises(TypeError, match=field):
+        CheckpointConfig(**settings)
 
 
 @pytest.mark.parametrize("dtype", ["uint16", "uint32"])

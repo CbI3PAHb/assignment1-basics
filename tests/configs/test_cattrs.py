@@ -46,6 +46,26 @@ def test_float_conversion_rejects_nonnumbers(converter, value):
         converter.structure(value, float)
 
 
+@pytest.mark.parametrize("value", [False, True])
+def test_boolean_conversion_preserves_booleans(converter, value):
+    assert converter.structure(value, bool) is value
+
+
+@pytest.mark.parametrize("field", ["save_checkpoint", "save_checkpoint_at_the_end"])
+@pytest.mark.parametrize("value", [0, 1, 0.0, "true", "false", None, []])
+def test_checkpoint_flags_reject_boolean_coercion(converter, raw_experiment, field, value):
+    raw_experiment["checkpoint"] = {"save_checkpoint": True, "save_checkpoint_at_the_end": True, field: value}
+
+    with pytest.raises(ClassValidationError) as caught:
+        converter.structure(raw_experiment, ExperimentConfig)
+
+    assert any(
+        isinstance(error, TypeError)
+        and any(getattr(note, "name", None) == field for note in getattr(error, "__notes__", ()))
+        for error in exception_leaves(caught.value)
+    )
+
+
 @pytest.mark.parametrize(
     ("path", "value"),
     [
@@ -56,9 +76,9 @@ def test_float_conversion_rejects_nonnumbers(converter, value):
         (("model", "num_layers"), "2"),
         (("loop", "max_steps"), 100.0),
         (("scheduler", "warmup_steps"), False),
-        (("checkpoint", "save_every_steps"), 5.0),
-        (("checkpoint", "save_every_steps"), "5"),
-        (("checkpoint", "save_every_steps"), True),
+        (("checkpoint", "save_checkpoint_interval"), 5.0),
+        (("checkpoint", "save_checkpoint_interval"), "5"),
+        (("checkpoint", "save_checkpoint_interval"), True),
         (("seed",), True),
     ],
 )
@@ -74,11 +94,14 @@ def test_nested_integer_fields_use_strict_conversion(converter, raw_experiment, 
     )
 
 
-@pytest.mark.parametrize("save_every_steps", [None, 5])
-def test_optional_integer_accepts_none_or_integer(converter, raw_experiment, save_every_steps):
-    raw_experiment["checkpoint"] = {"save_every_steps": save_every_steps}
+@pytest.mark.parametrize("save_checkpoint_interval", [None, 5])
+def test_optional_integer_accepts_none_or_integer(converter, raw_experiment, save_checkpoint_interval):
+    raw_experiment["checkpoint"] = {
+        "save_checkpoint": save_checkpoint_interval is not None,
+        "save_checkpoint_interval": save_checkpoint_interval,
+    }
     config = converter.structure(raw_experiment, ExperimentConfig)
-    assert config.checkpoint.save_every_steps == save_every_steps
+    assert config.checkpoint.save_checkpoint_interval == save_checkpoint_interval
 
 
 @pytest.mark.parametrize(
@@ -242,6 +265,10 @@ def test_local_converter_does_not_change_global_cattrs_defaults(converter, raw_e
     with pytest.raises(TypeError):
         converter.structure("0.9", float)
     assert cattrs.structure("0.9", float) == 0.9
+
+    with pytest.raises(TypeError):
+        converter.structure("false", bool)
+    assert cattrs.structure("false", bool) is True
 
     raw_experiment["unexpected_field"] = 123
     with pytest.raises(ClassValidationError):
