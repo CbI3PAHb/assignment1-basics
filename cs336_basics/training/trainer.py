@@ -41,13 +41,16 @@ class Trainer:
 
             save_every_steps = self.checkpoint.save_every_steps
             if save_every_steps is not None and self.completed_steps % save_every_steps == 0:
-                output_file = self.output_dir / f"checkpoint_{self.completed_steps:010d}.pt"
-                save_checkpoint(
-                    model=self.model,
-                    optimizer=self.optimizer,
-                    iteration=self.completed_steps,
-                    out=output_file,
-                )
+                self._save_checkpoint()
+
+    def _save_checkpoint(self) -> None:
+        output_file = self.output_dir / f"checkpoint_{self.completed_steps:010d}.pt"
+        save_checkpoint(
+            model=self.model,
+            optimizer=self.optimizer,
+            iteration=self.completed_steps,
+            out=output_file,
+        )
 
     def train_step(self) -> torch.Tensor:
         lr = self.lr_schedule(self.completed_steps)
