@@ -16,8 +16,7 @@ def gradient_clipping(
     norms = [torch.linalg.vector_norm(g) for g in grads]
     norm = torch.linalg.vector_norm(torch.stack(norms))
 
-    if norm > max_l2_norm:
-        multiplier = max_l2_norm / (norm + eps)
+    multiplier = (max_l2_norm / (norm + eps)).clamp(max=1.0)
 
-        for grad in grads:
-            grad.mul_(multiplier)
+    for grad in grads:
+        grad.mul_(multiplier)
