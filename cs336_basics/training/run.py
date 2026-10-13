@@ -14,6 +14,7 @@ from cs336_basics.training.reproducibility import seed_everything
 from .build import build_lr_schedule, build_model, build_optimizer, load_dataset
 from .config.experiment import ExperimentConfig
 from .config.io import dump_experiment
+from .config.trainer import TrainerConfig
 from .trainer import Trainer
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,9 @@ def run_training(config: ExperimentConfig) -> None:
     model = model.to(config.runtime.device)
 
     optimizer = build_optimizer(config.optimizer, model.parameters())
-    lr_schedule = build_lr_schedule(config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps)
+    lr_schedule = build_lr_schedule(
+        config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps
+    )
 
     completed_steps = 0
     checkpoint = config.checkpoint
@@ -97,14 +100,18 @@ def run_training(config: ExperimentConfig) -> None:
     )
 
     trainer = Trainer(
-        loop=config.loop,
         model=model,
         optimizer=optimizer,
         next_train_batch=next_train_batch,
         next_eval_batch=next_eval_batch,
         lr_schedule=lr_schedule,
         completed_steps=completed_steps,
-        checkpoint=checkpoint,
+        config=TrainerConfig(
+            loop=config.loop,
+            checkpoint=config.checkpoint,
+            evaluation=config.evaluation,
+            logging=config.logging,
+        ),
         output_dir=config.output_dir,
     )
     trainer.train()

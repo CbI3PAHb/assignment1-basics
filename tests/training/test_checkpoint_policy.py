@@ -2,9 +2,10 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from attrs import evolve
 
 from cs336_basics.training import trainer as trainer_module
-from cs336_basics.training.config import CheckpointConfig, LoopConfig
+from cs336_basics.training.config import CheckpointConfig, LoopConfig, TrainerConfig
 from cs336_basics.training.trainer import Trainer
 
 
@@ -13,14 +14,13 @@ def trainer(tmp_path, monkeypatch):
     model = torch.nn.Linear(1, 1)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     instance = Trainer(
-        loop=LoopConfig(max_steps=5),
         model=model,
         optimizer=optimizer,
         next_train_batch=Mock(side_effect=AssertionError("train_step is replaced in policy tests")),
         next_eval_batch=Mock(side_effect=AssertionError("train_step is replaced in policy tests")),
         lr_schedule=lambda step: 0.1,
         completed_steps=0,
-        checkpoint=CheckpointConfig(),
+        config=TrainerConfig(loop=LoopConfig(max_steps=5)),
         output_dir=tmp_path,
     )
     monkeypatch.setattr(instance, "train_step", Mock(return_value=torch.tensor(0.0)))
@@ -40,12 +40,15 @@ def trainer(tmp_path, monkeypatch):
 def test_checkpoint_policy_saves_completed_updates_once(
     trainer, monkeypatch, enabled, interval, final, max_steps, expected_steps
 ):
-    trainer.checkpoint = CheckpointConfig(
-        save_checkpoint=enabled,
-        save_checkpoint_interval=interval,
-        save_checkpoint_at_the_end=final,
+    trainer.config = evolve(
+        trainer.config,
+        checkpoint=CheckpointConfig(
+            save_checkpoint=enabled,
+            save_checkpoint_interval=interval,
+            save_checkpoint_at_the_end=final,
+        ),
     )
-    trainer.loop = LoopConfig(max_steps=max_steps)
+    trainer.config = evolve(trainer.config, loop=LoopConfig(max_steps=max_steps))
     save = Mock(wraps=trainer_module.save_checkpoint)
     monkeypatch.setattr(trainer_module, "save_checkpoint", save)
 
@@ -68,9 +71,9 @@ def test_checkpoint_policy_saves_completed_updates_once(
 
 @pytest.mark.parametrize("completed_steps", [3, 4])
 def test_final_save_exports_resumed_state_even_without_new_updates(trainer, monkeypatch, completed_steps):
-    trainer.loop = LoopConfig(max_steps=4)
+    trainer.config = evolve(trainer.config, loop=LoopConfig(max_steps=4))
     trainer.completed_steps = completed_steps
-    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=2, save_checkpoint_at_the_end=True)
+    trainer.config = evolve(trainer.config, checkpoint=CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=2, save_checkpoint_at_the_end=True))
     save = Mock(wraps=trainer_module.save_checkpoint)
     monkeypatch.setattr(trainer_module, "save_checkpoint", save)
 
@@ -83,7 +86,7 @@ def test_final_save_exports_resumed_state_even_without_new_updates(trainer, monk
 
 
 def test_failed_update_does_not_save_a_final_checkpoint(trainer, monkeypatch):
-    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_at_the_end=True)
+    trainer.config = evolve(trainer.config, checkpoint=CheckpointConfig(save_checkpoint=True, save_checkpoint_at_the_end=True))
     trainer.train_step.side_effect = RuntimeError("update failed")
     save = Mock()
     monkeypatch.setattr(trainer_module, "save_checkpoint", save)
@@ -96,7 +99,7 @@ def test_failed_update_does_not_save_a_final_checkpoint(trainer, monkeypatch):
 
 
 def test_failed_update_preserves_previous_periodic_checkpoint(trainer, monkeypatch):
-    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=2, save_checkpoint_at_the_end=True)
+    trainer.config = evolve(trainer.config, checkpoint=CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=2, save_checkpoint_at_the_end=True))
     trainer.train_step.side_effect = [torch.tensor(0.0), torch.tensor(0.0), RuntimeError("update failed")]
     save = Mock(wraps=trainer_module.save_checkpoint)
     monkeypatch.setattr(trainer_module, "save_checkpoint", save)
@@ -112,7 +115,7 @@ def test_failed_update_preserves_previous_periodic_checkpoint(trainer, monkeypat
 
 @pytest.mark.parametrize("interval, expected_step", [(None, 5), (1, 1)])
 def test_failed_save_propagates_without_retrying_or_repeating_updates(trainer, monkeypatch, interval, expected_step):
-    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=interval, save_checkpoint_at_the_end=True)
+    trainer.config = evolve(trainer.config, checkpoint=CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=interval, save_checkpoint_at_the_end=True))
     save = Mock(side_effect=OSError("checkpoint write failed"))
     monkeypatch.setattr(trainer_module, "save_checkpoint", save)
 

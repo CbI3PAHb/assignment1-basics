@@ -3,9 +3,10 @@ import copy
 import pytest
 import torch
 from torch import nn
+from attrs import evolve
 
 from cs336_basics.training import trainer as trainer_module
-from cs336_basics.training.config import CheckpointConfig, LoopConfig
+from cs336_basics.training.config import CheckpointConfig, EvaluationConfig, LoopConfig, TrainerConfig
 from cs336_basics.training.trainer import Trainer
 
 
@@ -39,14 +40,15 @@ def make_trainer(model, tmp_path, batches, *, accumulation=1, max_steps=1, compl
     eval_batch_iterator = iter(batches)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     return Trainer(
-        loop=LoopConfig(max_steps=max_steps, gradient_accumulation_steps=accumulation, max_grad_norm=1e6),
         model=model,
         optimizer=optimizer,
         next_train_batch=lambda: next(train_batch_iterator),
         next_eval_batch=lambda: next(eval_batch_iterator),
         lr_schedule=schedule if schedule is not None else lambda step: 0.1,
         completed_steps=completed_steps,
-        checkpoint=CheckpointConfig(),
+        config=TrainerConfig(
+            loop=LoopConfig(max_steps=max_steps, gradient_accumulation_steps=accumulation, max_grad_norm=1e6),
+        ),
         output_dir=tmp_path / "unused-output",
     )
 
@@ -108,7 +110,7 @@ def test_failed_update_does_not_advance_counter(model, batches, tmp_path):
 
 def test_checkpoint_failure_does_not_repeat_successful_update(model, batches, tmp_path, monkeypatch):
     trainer = make_trainer(model, tmp_path, batches)
-    trainer.checkpoint = CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=1)
+    trainer.config = evolve(trainer.config, checkpoint=CheckpointConfig(save_checkpoint=True, save_checkpoint_interval=1))
 
     def fail_save(**kwargs):
         raise OSError("checkpoint write failed")
@@ -122,9 +124,102 @@ def test_checkpoint_failure_does_not_repeat_successful_update(model, batches, tm
 
 def test_clipping_limits_accumulated_gradient_norm(model, batches, tmp_path):
     trainer = make_trainer(model, tmp_path, batches, accumulation=2)
-    trainer.loop = LoopConfig(max_steps=1, gradient_accumulation_steps=2, max_grad_norm=0.01)
+    trainer.config = evolve(trainer.config, loop=LoopConfig(max_steps=1, gradient_accumulation_steps=2, max_grad_norm=0.01))
     trainer.train_step()
 
     norms = [torch.linalg.vector_norm(parameter.grad) for parameter in model.parameters()]
     norm = torch.linalg.vector_norm(torch.stack(norms))
-    assert norm <= trainer.loop.max_grad_norm + 1e-8
+    assert norm <= trainer.config.loop.max_grad_norm + 1e-8
+
+
+@pytest.mark.parametrize("was_training", [False, True])
+def test_evaluate_reports_token_weighted_loss_without_changing_training_state(model, batches, tmp_path, was_training):
+    eval_batches = [batches[0], tuple(tensor.repeat(2, 1) for tensor in batches[1])]
+    trainer = make_trainer(model, tmp_path, eval_batches)
+    trainer.config = evolve(
+        trainer.config, evaluation=EvaluationConfig(do_eval=True, eval_interval=2, num_batches=2)
+    )
+    model.train(was_training)
+    for parameter in model.parameters():
+        parameter.grad = torch.ones_like(parameter)
+    original = copy.deepcopy(model.state_dict())
+    original_grads = [parameter.grad.clone() for parameter in model.parameters()]
+    original_optimizer = copy.deepcopy(trainer.optimizer.state_dict())
+    inputs = torch.cat([batch[0] for batch in eval_batches])
+    targets = torch.cat([batch[1] for batch in eval_batches])
+    expected_loss = torch.nn.functional.cross_entropy(model(inputs).flatten(0, 1), targets.flatten()).detach()
+    iterator = iter(eval_batches)
+
+    def next_eval_batch():
+        assert not model.training
+        assert torch.is_inference_mode_enabled()
+        return next(iterator)
+
+    trainer.next_eval_batch = next_eval_batch
+    metrics = trainer.evaluate()
+
+    torch.testing.assert_close(metrics["evaluation_loss"], expected_loss)
+    torch.testing.assert_close(metrics["evaluation_perplexity"], expected_loss.exp())
+    assert not metrics["evaluation_loss"].requires_grad
+    assert model.training is was_training
+    assert trainer.completed_steps == 0
+    assert trainer.optimizer.state_dict() == original_optimizer
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(value, original[name])
+    for parameter, gradient in zip(model.parameters(), original_grads, strict=True):
+        torch.testing.assert_close(parameter.grad, gradient)
+
+
+@pytest.mark.parametrize("was_training", [False, True])
+def test_evaluate_restores_model_mode_after_failure(model, tmp_path, was_training):
+    trainer = make_trainer(model, tmp_path, [])
+    trainer.config = evolve(
+        trainer.config, evaluation=EvaluationConfig(do_eval=True, eval_interval=2, num_batches=1)
+    )
+    model.train(was_training)
+
+    with pytest.raises(StopIteration):
+        trainer.evaluate()
+
+    assert model.training is was_training
+
+
+@pytest.mark.parametrize("completed_steps", [0, 1])
+def test_evaluation_runs_at_completed_update_intervals(model, batches, tmp_path, monkeypatch, completed_steps):
+    trainer = make_trainer(model, tmp_path, batches * 2, max_steps=4, completed_steps=completed_steps)
+    trainer.config = evolve(
+        trainer.config, evaluation=EvaluationConfig(do_eval=True, eval_interval=2, num_batches=1)
+    )
+    evaluated_steps = []
+    monkeypatch.setattr(trainer, "evaluate", lambda: evaluated_steps.append(trainer.completed_steps))
+
+    trainer.train()
+
+    assert evaluated_steps == [2, 4]
+
+
+def test_disabled_evaluation_is_not_called(model, batches, tmp_path, monkeypatch):
+    trainer = make_trainer(model, tmp_path, batches)
+
+    def unexpected_evaluation():
+        raise AssertionError("Evaluation is disabled")
+
+    monkeypatch.setattr(trainer, "evaluate", unexpected_evaluation)
+    trainer.train()
+    assert trainer.completed_steps == 1
+
+
+def test_evaluation_failure_keeps_successful_update_count(model, batches, tmp_path, monkeypatch):
+    trainer = make_trainer(model, tmp_path, batches)
+    trainer.config = evolve(
+        trainer.config, evaluation=EvaluationConfig(do_eval=True, eval_interval=1, num_batches=1)
+    )
+
+    def fail_evaluation():
+        raise RuntimeError("evaluation failed")
+
+    monkeypatch.setattr(trainer, "evaluate", fail_evaluation)
+    with pytest.raises(RuntimeError, match="evaluation failed"):
+        trainer.train()
+
+    assert trainer.completed_steps == 1

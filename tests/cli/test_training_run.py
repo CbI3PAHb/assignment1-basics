@@ -171,6 +171,27 @@ def test_run_with_checkpoint_saving_disabled_still_trains(
     _assert_model_changed(built_components["models"][-1])
 
 
+def test_run_passes_evaluation_settings_to_trainer(cpu_experiment, write_experiment, monkeypatch):
+    cpu_experiment["evaluation"] = {"do_eval": True, "eval_interval": 2, "num_batches": 1}
+    evaluations = []
+    real_evaluate = training_run.Trainer.evaluate
+
+    def evaluate(self):
+        metrics = real_evaluate(self)
+        evaluations.append((self.completed_steps, metrics))
+        return metrics
+
+    monkeypatch.setattr(training_run.Trainer, "evaluate", evaluate)
+
+    _run_cli(cpu_experiment, write_experiment)
+
+    assert [step for step, _ in evaluations] == [2, 4]
+    for _, metrics in evaluations:
+        assert torch.isfinite(metrics["evaluation_loss"])
+        assert not metrics["evaluation_loss"].requires_grad
+        torch.testing.assert_close(metrics["evaluation_perplexity"], metrics["evaluation_loss"].exp())
+
+
 @pytest.mark.parametrize("interval, expected_steps", [(None, [4]), (3, [3, 4])])
 def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_components, interval, expected_steps):
     cpu_experiment["checkpoint"] = {

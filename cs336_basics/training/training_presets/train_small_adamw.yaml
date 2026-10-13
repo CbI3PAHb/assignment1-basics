@@ -51,3 +51,8 @@ checkpoint:
 
 logging:
   silent: false
+
+evaluation:
+  do_eval: true
+  eval_interval: 10
+  num_batches: 20

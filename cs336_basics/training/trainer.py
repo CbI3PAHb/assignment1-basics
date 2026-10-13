@@ -1,7 +1,7 @@
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
-import logging
 import torch
 import torch.nn as nn
 
@@ -9,8 +9,7 @@ from cs336_basics.checkpoint.checkpoint import save_checkpoint
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import cross_entropy_loss
 
-from .config import CheckpointConfig, LoopConfig
-
+from .config import TrainerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,50 +19,60 @@ class Trainer:
         self,
         /,
         *,
-        loop: LoopConfig,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
         next_train_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]],
         next_eval_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]],
         lr_schedule: Callable[[int], float],
         completed_steps: int,
-        checkpoint: CheckpointConfig,
+        config: TrainerConfig,
         output_dir: Path,
     ) -> None:
-        self.loop = loop
-        self.model = model
-        self.optimizer = optimizer
-        self.next_train_batch = next_train_batch
-        self.next_eval_batch = next_eval_batch
+        self.model: nn.Module = model
+        self.optimizer: torch.optim.Optimizer = optimizer
+        self.next_train_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = (
+            next_train_batch
+        )
+        self.next_eval_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = (
+            next_eval_batch
+        )
         self.lr_schedule: Callable[[int], float] = lr_schedule
         self.completed_steps: int = completed_steps
-        self.checkpoint = checkpoint
+        self.config = config
         self.output_dir = output_dir
 
     def train(self) -> None:
-        logger.info(f"Training started: {self.completed_steps} completed steps / {self.loop.max_steps} max steps")
+        logger.info(
+            f"Training started: {self.completed_steps} completed steps / {self.config.loop.max_steps} max steps"
+        )
         last_saved_step = None
 
-        while self.completed_steps < self.loop.max_steps:
+        while self.completed_steps < self.config.loop.max_steps:
             loss = self.train_step()
             self.completed_steps += 1
 
-            interval = self.checkpoint.save_checkpoint_interval
             if (
-                self.checkpoint.save_checkpoint
-                and interval is not None
-                and self.completed_steps % interval == 0
+                self.config.evaluation.do_eval
+                and self.completed_steps % self.config.evaluation.eval_interval == 0
+            ):
+                self.evaluate()
+            if (
+                self.config.checkpoint.save_checkpoint
+                and self.config.checkpoint.save_checkpoint_interval is not None
+                and self.completed_steps
+                % self.config.checkpoint.save_checkpoint_interval
+                == 0
             ):
                 self._save_checkpoint()
                 last_saved_step = self.completed_steps
 
             if self.completed_steps % 10 == 0:
                 logger.info(
-                    f"step = {self.completed_steps:05d} | loss = {loss.item():12f} | lr = {self.optimizer.param_groups[0]["lr"]:>12.6e}"
+                    f"step = {self.completed_steps:05d} | loss = {loss.item():12f} | lr = {self.optimizer.param_groups[0]['lr']:>12.6e}"
                 )
         if (
-            self.checkpoint.save_checkpoint
-            and self.checkpoint.save_checkpoint_at_the_end
+            self.config.checkpoint.save_checkpoint
+            and self.config.checkpoint.save_checkpoint_at_the_end
             and last_saved_step != self.completed_steps
         ):
             self._save_checkpoint()
@@ -86,15 +95,40 @@ class Trainer:
         self.optimizer.zero_grad(set_to_none=True)
 
         losses = []
-        for _ in range(self.loop.gradient_accumulation_steps):
+        for _ in range(self.config.loop.gradient_accumulation_steps):
             inputs, targets = self.next_train_batch()
             logits = self.model(inputs)
             loss = cross_entropy_loss(logits=logits, targets=targets)
 
-            (loss / self.loop.gradient_accumulation_steps).backward()
+            (loss / self.config.loop.gradient_accumulation_steps).backward()
             losses.append(loss.detach())
 
-        gradient_clipping(self.model.parameters(), max_l2_norm=self.loop.max_grad_norm)
+        gradient_clipping(
+            self.model.parameters(), max_l2_norm=self.config.loop.max_grad_norm
+        )
         self.optimizer.step()
 
         return torch.stack(losses).mean()
+
+    def evaluate(self) -> dict[str, torch.Tensor]:
+        if not self.config.evaluation.do_eval:
+            raise ValueError("Evaluation is disabled")
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            losses = []
+            total_tokens = 0
+            with torch.inference_mode():
+                for _ in range(self.config.evaluation.num_batches):
+                    inputs, targets = self.next_eval_batch()
+                    logits = self.model(inputs)
+                    loss = cross_entropy_loss(logits=logits, targets=targets)
+                    losses.append(loss * targets.numel())
+                    total_tokens += targets.numel()
+                loss = torch.stack(losses).sum() / total_tokens
+                return {
+                    "evaluation_loss": loss,
+                    "evaluation_perplexity": loss.exp(),
+                }
+        finally:
+            self.model.train(was_training)

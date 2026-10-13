@@ -1,12 +1,14 @@
 """Logging"""
 
 import attrs
-from ._validators import _POSITIVE_INTEGER
+
 from ._errors import ConfigError
+from ._validators import _POSITIVE_INTEGER
 
 
 class EvaluationConfigError(ConfigError):
     """lol kek"""
+
 
 @attrs.frozen(kw_only=True)
 class EvaluationConfig:
