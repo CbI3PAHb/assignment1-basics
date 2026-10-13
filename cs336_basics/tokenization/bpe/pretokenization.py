@@ -55,11 +55,7 @@ def find_safe_chunk_boundaries(
 
     ``split_token`` must be a declared special token that is removed before
     pre-tokenization. If there is no safe delimiter, correctness is more
-    important than parallelism and a single ``[0, file_size]`` chunk is valid.
-
-    TODO:
-        Implement boundary discovery without hardcoding ``<|endoftext|>``.
-    """
+    important than parallelism and a single ``[0, file_size]`` chunk is valid"""
     if desired_num_chunks <= 0:
         raise ValueError(f"desired_num_chunks must be > 0, got {desired_num_chunks}")
 

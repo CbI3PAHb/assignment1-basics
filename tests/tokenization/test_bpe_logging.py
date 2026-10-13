@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from cs336_basics.tokenization.bpe import trainer as trainer_module
-from cs336_basics.tokenization.bpe.cli import setup_logging
+from cs336_basics.logging_setup import setup_logging
 
 
 def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:
@@ -11,11 +11,13 @@ def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:
 
     try:
         setup_logging(
+            logger_name="cs336_basics.tokenization.bpe",
             log_file=log_file,
             json_log_file=None,
             silent=True,
         )
         setup_logging(
+            logger_name="cs336_basics.tokenization.bpe",
             log_file=log_file,
             json_log_file=None,
             silent=True,
@@ -27,6 +29,7 @@ def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:
         assert contents.count(message) == 1
     finally:
         setup_logging(
+            logger_name="cs336_basics.tokenization.bpe",
             log_file=None,
             json_log_file=None,
             silent=True,
