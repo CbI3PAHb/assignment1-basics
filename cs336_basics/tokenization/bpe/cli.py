@@ -69,7 +69,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     setup_logging(
         log_file=args.log_file,
-        json_log_file=args.json_log_file,
+        metrics_log_file=args.metrics_log_file,
         silent=args.silent,
         logger_name=BPE_LOGGER_NAME,
     )

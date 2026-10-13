@@ -13,13 +13,13 @@ def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:
         setup_logging(
             logger_name="cs336_basics.tokenization.bpe",
             log_file=log_file,
-            json_log_file=None,
+            metrics_log_file=None,
             silent=True,
         )
         setup_logging(
             logger_name="cs336_basics.tokenization.bpe",
             log_file=log_file,
-            json_log_file=None,
+            metrics_log_file=None,
             silent=True,
         )
 
@@ -31,6 +31,6 @@ def test_setup_logging_is_idempotent_for_child_logger(tmp_path: Path) -> None:
         setup_logging(
             logger_name="cs336_basics.tokenization.bpe",
             log_file=None,
-            json_log_file=None,
+            metrics_log_file=None,
             silent=True,
         )

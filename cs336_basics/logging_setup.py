@@ -13,7 +13,7 @@ def _close_handlers(logger: logging.Logger) -> None:
 def setup_logging(
     *,
     log_file: Path | None,
-    json_log_file: Path | None,
+    metrics_log_file: Path | None,
     silent: bool,
     logger_name: str = "cs336_basics",
 ) -> None:
@@ -46,9 +46,9 @@ def setup_logging(
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
-    if json_log_file is not None:
-        json_log_file.parent.mkdir(parents=True, exist_ok=True)
-        json_handler = logging.FileHandler(json_log_file, mode="w", encoding="utf-8")
+    if metrics_log_file is not None:
+        metrics_log_file.parent.mkdir(parents=True, exist_ok=True)
+        json_handler = logging.FileHandler(metrics_log_file, mode="w", encoding="utf-8")
         json_handler.setLevel(logging.INFO)
         json_handler.setFormatter(logging.Formatter("%(message)s"))
         metrics_logger.addHandler(json_handler)

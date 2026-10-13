@@ -1,8 +1,13 @@
 """
 uv run python -m cs336_basics.tokenization.encode_dataset \
+    --input-path /home/parii-artem/wip/EFDL/assignment1-basics/data/owt_train.txt \
+    --output-path tokenized_datasets/owt_train.bin \
+    --tokenizer-file-path artifacts/tokenizers/owt_train/tokenizer.pkl
+
+uv run python -m cs336_basics.tokenization.encode_dataset \
     --input-path /home/parii-artem/wip/EFDL/assignment1-basics/data/owt_valid.txt \
     --output-path tokenized_datasets/owt_valid.bin \
-    --tokenizer-file-path artifacts/tokenizers/owt_valid/tokenizer.pkl
+    --tokenizer-file-path artifacts/tokenizers/owt_train/tokenizer.pkl
 """
 
 import argparse

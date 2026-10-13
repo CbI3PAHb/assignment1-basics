@@ -80,10 +80,12 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
 
 def test_load_experiment_does_not_open_datasets_or_create_run_artifacts(tmp_path, raw_experiment):
     output_dir = tmp_path / "run"
-    dataset_path = tmp_path / "missing-tokens.bin"
+    train_dataset_path = tmp_path / "missing-train-tokens.bin"
+    eval_dataset_path = tmp_path / "missing-eval-tokens.bin"
     resume_path = tmp_path / "missing-checkpoint.pt"
     raw_experiment["output_dir"] = str(output_dir)
-    raw_experiment["data"]["train"]["path"] = str(dataset_path)
+    raw_experiment["data"]["train"]["path"] = str(train_dataset_path)
+    raw_experiment["data"]["eval"]["path"] = str(eval_dataset_path)
     raw_experiment["runtime"] = {"device": "cuda"}
     raw_experiment["checkpoint"] = {"resume_from": str(resume_path)}
     path = _write_yaml(tmp_path, raw_experiment)
@@ -91,10 +93,12 @@ def test_load_experiment_does_not_open_datasets_or_create_run_artifacts(tmp_path
     config = load_experiment(path)
 
     assert config.runtime.device == "cuda"
-    assert config.data.train.path == dataset_path
+    assert config.data.train.path == train_dataset_path
+    assert config.data.eval.path == eval_dataset_path
     assert config.checkpoint.resume_from == resume_path
     assert not output_dir.exists()
-    assert not dataset_path.exists()
+    assert not train_dataset_path.exists()
+    assert not eval_dataset_path.exists()
     assert not resume_path.exists()
     assert list(tmp_path.iterdir()) == [path]
 
@@ -328,6 +332,7 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "data",
         "optimizer",
         "loop",
+        "logging",
         "seed",
         "scheduler",
         "runtime",
@@ -336,6 +341,7 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
     assert raw["seed"] == 42
     assert raw["model"]["rope_theta"] == DEFAULT_ROPE_THETA
     assert raw["data"]["train"]["dtype"] == "uint16"
+    assert raw["data"]["eval"]["dtype"] == "uint16"
     assert raw["data"]["batching"]["type"] == "random_sequences"
     assert raw["optimizer"] == {
         "lr": 0.001,

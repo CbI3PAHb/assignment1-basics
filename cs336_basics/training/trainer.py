@@ -19,7 +19,8 @@ class Trainer:
         loop: LoopConfig,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
-        next_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]],
+        next_train_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]],
+        next_eval_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]],
         lr_schedule: Callable[[int], float],
         completed_steps: int,
         checkpoint: CheckpointConfig,
@@ -28,7 +29,8 @@ class Trainer:
         self.loop = loop
         self.model = model
         self.optimizer = optimizer
-        self.next_batch = next_batch
+        self.next_train_batch = next_train_batch
+        self.next_eval_batch = next_eval_batch
         self.lr_schedule: Callable[[int], float] = lr_schedule
         self.completed_steps: int = completed_steps
         self.checkpoint = checkpoint
@@ -74,7 +76,7 @@ class Trainer:
 
         losses = []
         for _ in range(self.loop.gradient_accumulation_steps):
-            inputs, targets = self.next_batch()
+            inputs, targets = self.next_train_batch()
             logits = self.model(inputs)
             loss = cross_entropy_loss(logits=logits, targets=targets)
 

@@ -1,6 +1,7 @@
 import copy
 import pickle
 from pathlib import Path
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -60,6 +61,7 @@ def built_components(monkeypatch):
 def _write_tokens(raw, count=96):
     tokens = (np.arange(count) % raw["model"]["vocab_size"]).astype(np.uint16)
     tokens.tofile(raw["data"]["train"]["path"])
+    tokens.tofile(raw["data"]["eval"]["path"])
 
 
 @pytest.fixture
@@ -107,6 +109,32 @@ def _assert_model_changed(record):
         not torch.equal(record["initial_state"][key], value)
         for key, value in record["model"].state_dict().items()
     )
+
+
+def test_run_connects_train_and_eval_batch_sources(cpu_experiment, write_experiment, monkeypatch):
+    # Constant, distinct token IDs make the check independent of sampled positions.
+    token_ids = {"train": 3, "eval": 17}
+    for split, token_id in token_ids.items():
+        np.full(96, token_id, dtype=np.uint16).tofile(cpu_experiment["data"][split]["path"])
+
+    trainer_constructor = Mock(name="Trainer")
+    monkeypatch.setattr(training_run, "Trainer", trainer_constructor)
+
+    _run_cli(cpu_experiment, write_experiment)
+
+    trainer_constructor.assert_called_once()
+    trainer_constructor.return_value.train.assert_called_once_with()
+    arguments = trainer_constructor.call_args.kwargs
+    batching = cpu_experiment["data"]["batching"]
+    expected_shape = (batching["micro_batch_size"], batching["sequence_length"])
+
+    for split, token_id in token_ids.items():
+        inputs, targets = arguments[f"next_{split}_batch"]()
+        for tensor in (inputs, targets):
+            assert tensor.shape == expected_shape
+            assert tensor.dtype == torch.int64
+            assert tensor.device.type == "cpu"
+            torch.testing.assert_close(tensor, torch.full(expected_shape, token_id, dtype=torch.int64))
 
 
 def test_run_trains_and_saves_completed_updates_and_resolved_config(
@@ -159,11 +187,11 @@ def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_
         checkpoints[-1][1]["optimizer_state_dict"], built_components["optimizers"][-1]["optimizer"].state_dict()
     )
 
-
+@pytest.mark.parametrize("split", ["train", "eval"])
 def test_missing_dataset_allows_retry_with_same_output_directory(
-    cpu_experiment, write_experiment
+    cpu_experiment, write_experiment, split
 ):
-    Path(cpu_experiment["data"]["train"]["path"]).unlink()
+    Path(cpu_experiment["data"][split]["path"]).unlink()
     output_dir = Path(cpu_experiment["output_dir"])
 
     with pytest.raises(RuntimeError):

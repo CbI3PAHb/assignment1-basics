@@ -42,6 +42,9 @@ class DataConfig:
     train: DatasetConfig = attrs.field(
         validator=attrs.validators.instance_of(DatasetConfig)
     )
+    eval: DatasetConfig = attrs.field(
+        validator=attrs.validators.instance_of(DatasetConfig)
+    )
     batching: BatchingConfig = attrs.field(
         validator=attrs.validators.instance_of(BatchingConfig)
     )

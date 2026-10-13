@@ -90,6 +90,7 @@ def test_main_config_prints_complete_yaml_without_importing_training(
         "model": {**minimal_experiment["model"], "rope_theta": 10000.0},
         "data": {
             "train": {**minimal_experiment["data"]["train"], "dtype": "uint16"},
+            "eval": {**minimal_experiment["data"]["eval"], "dtype": "uint16"},
             "batching": {**minimal_experiment["data"]["batching"], "type": "random_sequences"},
         },
         "optimizer": {
@@ -100,6 +101,7 @@ def test_main_config_prints_complete_yaml_without_importing_training(
             "weight_decay": 0.01,
         },
         "loop": {"max_steps": 4, "gradient_accumulation_steps": 1, "max_grad_norm": 1.0},
+        "logging": {"silent": False},
         "seed": 42,
         "scheduler": {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6},
         "runtime": {"device": "cuda"},

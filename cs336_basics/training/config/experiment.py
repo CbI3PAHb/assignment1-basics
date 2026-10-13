@@ -9,6 +9,7 @@ from ._errors import ConfigError
 from ._validators import _NONNEGATIVE_INTEGER
 from .checkpoint import CheckpointConfig
 from .data import DataConfig
+from .logging import LoggingConfig
 from .loop import LoopConfig
 from .model import ModelConfig
 from .optimizer import OptimizerConfig
@@ -41,6 +42,10 @@ class ExperimentConfig:
     checkpoint: CheckpointConfig = attrs.field(
         factory=CheckpointConfig,
         validator=attrs.validators.instance_of(CheckpointConfig),
+    )
+    logging: LoggingConfig = attrs.field(
+        factory=LoggingConfig,
+        validator=attrs.validators.instance_of(LoggingConfig),
     )
 
     def __attrs_post_init__(self) -> None:

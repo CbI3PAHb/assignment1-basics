@@ -22,9 +22,11 @@ def raw_experiment(tmp_path):
             "d_ff": 128,
         },
         "data": {
-            "train": {"path": str(tmp_path / "tokens.bin")},
+            "train": {"path": str(tmp_path / "train_tokens.bin")},
+            "eval": {"path": str(tmp_path / "eval_tokens.bin")},
             "batching": {"sequence_length": 64, "micro_batch_size": 2},
         },
         "optimizer": {},
         "loop": {"max_steps": 100},
+        "logging": {"silent": False},
     }

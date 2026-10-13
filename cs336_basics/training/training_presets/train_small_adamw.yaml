@@ -15,6 +15,9 @@ data:
   train:
     path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_train.bin
     dtype: uint16
+  eval:
+    path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_valid.bin
+    dtype: uint16
   batching:
     type: random_sequences
     sequence_length: 128
@@ -46,3 +49,6 @@ checkpoint:
   save_checkpoint: true
   save_checkpoint_interval: null
   save_checkpoint_at_the_end: true
+
+logging:
+  silent: false

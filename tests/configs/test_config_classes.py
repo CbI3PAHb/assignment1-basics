@@ -32,7 +32,8 @@ def experiment(tmp_path):
             d_ff=128,
         ),
         data=DataConfig(
-            train=DatasetConfig(path="tokens.bin"),
+            train=DatasetConfig(path="train_tokens.bin"),
+            eval=DatasetConfig(path="eval_tokens.bin"),
             batching=BatchingConfig(sequence_length=64, micro_batch_size=2),
         ),
         optimizer=OptimizerConfig(betas=[0.9, 0.95]),
@@ -42,7 +43,8 @@ def experiment(tmp_path):
 
 def test_configuration_converts_serializable_inputs(experiment):
     assert isinstance(experiment.output_dir, Path)
-    assert experiment.data.train.path == Path("tokens.bin")
+    assert experiment.data.train.path == Path("train_tokens.bin")
+    assert experiment.data.eval.path == Path("eval_tokens.bin")
     assert experiment.optimizer.betas == (0.9, 0.95)
     assert isinstance(experiment.optimizer.betas, tuple)
     assert CheckpointConfig(resume_from="run/checkpoint.pt").resume_from == Path(

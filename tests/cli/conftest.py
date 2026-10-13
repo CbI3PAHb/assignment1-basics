@@ -4,7 +4,7 @@ import yaml
 
 @pytest.fixture
 def minimal_experiment(tmp_path):
-    """A complete minimal YAML config whose resource paths need not exist."""
+    """A complete minimal YAML config whose resource paths need not exist"""
     return {
         "output_dir": str(tmp_path / "run"),
         "model": {
@@ -16,7 +16,8 @@ def minimal_experiment(tmp_path):
             "d_ff": 16,
         },
         "data": {
-            "train": {"path": str(tmp_path / "missing-tokens.bin")},
+            "train": {"path": str(tmp_path / "missing-train-tokens.bin")},
+            "eval": {"path": str(tmp_path / "missing-eval-tokens.bin")},
             "batching": {"sequence_length": 8, "micro_batch_size": 2},
         },
         "optimizer": {},

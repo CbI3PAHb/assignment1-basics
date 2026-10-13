@@ -35,13 +35,15 @@ def batches():
 
 
 def make_trainer(model, tmp_path, batches, *, accumulation=1, max_steps=1, completed_steps=0, schedule=None):
-    batch_iterator = iter(batches)
+    train_batch_iterator = iter(batches)
+    eval_batch_iterator = iter(batches)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     return Trainer(
         loop=LoopConfig(max_steps=max_steps, gradient_accumulation_steps=accumulation, max_grad_norm=1e6),
         model=model,
         optimizer=optimizer,
-        next_batch=lambda: next(batch_iterator),
+        next_train_batch=lambda: next(train_batch_iterator),
+        next_eval_batch=lambda: next(eval_batch_iterator),
         lr_schedule=schedule if schedule is not None else lambda step: 0.1,
         completed_steps=completed_steps,
         checkpoint=CheckpointConfig(),
