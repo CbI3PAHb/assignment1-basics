@@ -58,8 +58,7 @@ def run_training(config: ExperimentConfig) -> None:
     for split, dataset in (("train", train_dataset), ("eval", eval_dataset)):
         if dataset.size <= batching.sequence_length:
             raise ValueError(
-                f"{split} dataset must contain at least {batching.sequence_length + 1} tokens, "
-                f"got {dataset.size}"
+                f"{split} dataset must contain at least {batching.sequence_length + 1} tokens, got {dataset.size}"
             )
 
     seed_everything(config.seed)

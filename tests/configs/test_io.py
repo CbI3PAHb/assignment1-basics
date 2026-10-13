@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -152,7 +153,34 @@ def test_load_experiment_rejects_unknown_fields(tmp_path, raw_experiment, field)
     )
 
 
-@pytest.mark.parametrize("field", ["output_dir", "model.d_model", "data.batching.micro_batch_size"])
+def test_load_experiment_generates_output_dir_and_preserves_it_in_dump(tmp_path, raw_experiment, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    del raw_experiment["output_dir"]
+    path = _write_yaml(tmp_path, raw_experiment)
+
+    config = load_experiment(path)
+
+    assert config.output_dir.parent == Path("artifacts/training")
+    datetime.strptime(config.output_dir.name, "%Y%m%d_%H%M%S")
+    assert list(tmp_path.iterdir()) == [path]
+
+    path.write_text(dump_experiment(config), encoding="utf-8")
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["output_dir"] == str(config.output_dir)
+    assert load_experiment(path) == config
+    assert list(tmp_path.iterdir()) == [path]
+
+
+@pytest.mark.parametrize("value", [None, "", False])
+def test_load_experiment_rejects_invalid_explicit_output_dir(tmp_path, raw_experiment, value):
+    raw_experiment["output_dir"] = value
+
+    with pytest.raises(ClassValidationError) as caught:
+        load_experiment(_write_yaml(tmp_path, raw_experiment))
+
+    assert any(isinstance(error, ConfigError) for error in exception_leaves(caught.value))
+
+
+@pytest.mark.parametrize("field", ["model.d_model", "data.batching.micro_batch_size"])
 def test_load_experiment_rejects_missing_required_fields(tmp_path, raw_experiment, field):
     *parents, name = field.split(".")
     raw = raw_experiment

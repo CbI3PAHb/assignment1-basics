@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
-from attrs import evolve
+from attrs import asdict, evolve
 from attrs.exceptions import FrozenInstanceError
 
 from cs336_basics.training.config import (
@@ -17,6 +19,7 @@ from cs336_basics.training.config import (
     RuntimeConfig,
     SchedulerConfig,
 )
+from cs336_basics.training.config import experiment as experiment_module
 
 
 @pytest.fixture
@@ -51,6 +54,26 @@ def test_configuration_converts_serializable_inputs(experiment):
         "run/checkpoint.pt"
     )
     assert CheckpointConfig().resume_from is None
+
+
+def test_output_dir_default_is_generated_for_each_config(experiment, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    moments = [
+        datetime(2026, 10, 13, 12, 0, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 13, 12, 0, 2, tzinfo=timezone.utc),
+    ]
+    clock = Mock()
+    clock.now.side_effect = moments
+    monkeypatch.setattr(experiment_module, "datetime", clock)
+    arguments = asdict(experiment, recurse=False)
+    del arguments["output_dir"]
+
+    configs = [ExperimentConfig(**arguments), ExperimentConfig(**arguments)]
+
+    for config, moment in zip(configs, moments, strict=True):
+        assert config.output_dir == Path("artifacts/training") / moment.astimezone().strftime("%Y%m%d_%H%M%S")
+    assert configs[0].output_dir != configs[1].output_dir
+    assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.parametrize(

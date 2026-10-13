@@ -2,7 +2,6 @@ output_dir: /home/parii-artem/wip/EFDL/assignment1-basics/artifacts/training/tra
 seed: 42
 
 model:
-  # Small architecture with the vocabulary of artifacts/tokenizers/owt_train/tokenizer.pkl.
   vocab_size: 32000
   context_length: 128
   d_model: 768

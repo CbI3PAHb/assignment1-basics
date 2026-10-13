@@ -1,5 +1,6 @@
 """Experiment composition and validation between components."""
 
+from datetime import datetime
 from pathlib import Path
 
 import attrs
@@ -17,11 +18,17 @@ from .runtime import RuntimeConfig
 from .scheduler import SchedulerConfig
 
 
+def _default_output_dir() -> Path:
+    """Choose a run path without creating any files or directories."""
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    return Path("artifacts/training") / timestamp
+
+
 @attrs.frozen(kw_only=True)
 class ExperimentConfig:
     """One experiment, composed from architecture and training settings"""
 
-    output_dir: Path = attrs.field(converter=_to_path)
+    output_dir: Path = attrs.field(factory=_default_output_dir, converter=_to_path)
     model: ModelConfig = attrs.field(
         validator=attrs.validators.instance_of(ModelConfig)
     )

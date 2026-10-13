@@ -21,6 +21,23 @@ def test_parse_args_accepts_one_yaml_config(action):
     assert args.config == Path("experiment.yaml")
 
 
+def test_main_config_without_output_dir_prints_generated_path_without_creating_it(
+    minimal_experiment, write_experiment, tmp_path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(sys.modules, "cs336_basics.training.run", None)
+    del minimal_experiment["output_dir"]
+    config_path = write_experiment(minimal_experiment)
+
+    cli.main(["train", "config", "--config", str(config_path)])
+
+    printed_config = yaml.safe_load(capsys.readouterr().out)
+    output_dir = Path(printed_config["output_dir"])
+    assert output_dir.parent == Path("artifacts/training")
+    assert not output_dir.exists()
+    assert list(tmp_path.iterdir()) == [config_path]
+
+
 @pytest.mark.parametrize(
     "argv",
     [

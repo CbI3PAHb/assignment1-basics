@@ -9,12 +9,12 @@ raise a GitHub issue or open a pull request with a fix.
 ## TODO
 - GPU tests !!!!!!
 - logging everywhere !!!!!!
-- create log file in output_dir
-- create some random-temp-dir if output_dir has not been received explicitly
-- add validataion dataset
+- [x] create log file in output_dir
+- [x] create some random-temp-dir if output_dir has not been received explicitly
+- [x] add validataion dataset
 - add validataion metrics (perplexity?)
 - compute and log train/eval metrics each n-steps
-- save checkpoint after train (by option mb?)
+- [x] save checkpoint after train (by option mb?)
 - do smth with `.../transformers.py`, its too big
 - do smth with `.../training/config/...`, folder consists of too many files. It can be refactored
 
