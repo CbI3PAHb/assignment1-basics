@@ -118,6 +118,11 @@ def test_main_config_prints_complete_yaml_without_importing_training(
             "weight_decay": 0.01,
         },
         "loop": {"max_steps": 4, "gradient_accumulation_steps": 1, "max_grad_norm": 1.0},
+        "evaluation": {
+            "do_eval": False,
+            "eval_interval": None,
+            "num_batches": None,
+        },
         "logging": {"silent": False},
         "seed": 42,
         "scheduler": {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6},

@@ -16,6 +16,7 @@ from .model import ModelConfig
 from .optimizer import OptimizerConfig
 from .runtime import RuntimeConfig
 from .scheduler import SchedulerConfig
+from .evaluation import EvaluationConfig
 
 
 def _default_output_dir() -> Path:
@@ -53,6 +54,10 @@ class ExperimentConfig:
     logging: LoggingConfig = attrs.field(
         factory=LoggingConfig,
         validator=attrs.validators.instance_of(LoggingConfig),
+    )
+    evaluation: EvaluationConfig = attrs.field(
+        factory=EvaluationConfig,
+        validator=attrs.validators.instance_of(EvaluationConfig)
     )
 
     def __attrs_post_init__(self) -> None:

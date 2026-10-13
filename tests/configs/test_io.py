@@ -365,6 +365,7 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "scheduler",
         "runtime",
         "checkpoint",
+        "evaluation",
     }
     assert raw["seed"] == 42
     assert raw["model"]["rope_theta"] == DEFAULT_ROPE_THETA
@@ -387,6 +388,11 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "save_checkpoint": False,
         "save_checkpoint_interval": None,
         "save_checkpoint_at_the_end": False,
+    }
+    assert raw["evaluation"] == {
+        "do_eval": False,
+        "eval_interval": None,
+        "num_batches": None,
     }
 
 
