@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
+import logging
 import torch
 import torch.nn as nn
 
@@ -9,6 +10,9 @@ from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import cross_entropy_loss
 
 from .config import CheckpointConfig, LoopConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class Trainer:
@@ -37,9 +41,11 @@ class Trainer:
         self.output_dir = output_dir
 
     def train(self) -> None:
+        logger.info(f"Training started: {self.completed_steps} completed steps / {self.loop.max_steps} max steps")
         last_saved_step = None
+
         while self.completed_steps < self.loop.max_steps:
-            self.train_step()
+            loss = self.train_step()
             self.completed_steps += 1
 
             interval = self.checkpoint.save_checkpoint_interval
@@ -51,6 +57,10 @@ class Trainer:
                 self._save_checkpoint()
                 last_saved_step = self.completed_steps
 
+            if self.completed_steps % 10 == 0:
+                logger.info(
+                    f"step = {self.completed_steps:05d} | loss = {loss.item():12f} | lr = {self.optimizer.param_groups[0]["lr"]:>12.6e}"
+                )
         if (
             self.checkpoint.save_checkpoint
             and self.checkpoint.save_checkpoint_at_the_end
@@ -66,6 +76,7 @@ class Trainer:
             iteration=self.completed_steps,
             out=output_file,
         )
+        logger.info(f"Checkpoint saved in {output_file}")
 
     def train_step(self) -> torch.Tensor:
         lr = self.lr_schedule(self.completed_steps)

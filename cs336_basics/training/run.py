@@ -1,5 +1,6 @@
 """Assemble an experiment and run its training loop."""
 
+import logging
 from functools import partial
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from .build import build_lr_schedule, build_model, build_optimizer, load_dataset
 from .config.experiment import ExperimentConfig
 from .config.io import dump_experiment
 from .trainer import Trainer
+
+logger = logging.getLogger(__name__)
 
 
 def _prepare_output(output_dir: Path, config_yaml: str) -> None:
@@ -38,19 +41,16 @@ def _prepare_output(output_dir: Path, config_yaml: str) -> None:
 def run_training(config: ExperimentConfig) -> None:
     """Prepare a new run directory, restore optional state, and execute training."""
 
+    setup_logging(silent=config.logging.silent)
+    logger.info(f"Experiment config:\n{dump_experiment(config)}")
+    logger.info(f"Starting training run in {config.output_dir}")
+
     if config.output_dir.exists():
         raise FileExistsError(f"Output directory already exists: {config.output_dir}")
     if config.runtime.device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested, but no CUDA device is available")
 
     _prepare_output(config.output_dir, dump_experiment(config))
-
-    setup_logging(
-        log_file=config.output_dir / f"log.txt",
-        metrics_log_file=config.output_dir / f"log.json",
-        silent=config.logging.silent,
-        logger_name="cs336_basics",
-    )
 
     train_dataset = load_dataset(config.data.train)
     eval_dataset = load_dataset(config.data.eval)
@@ -66,9 +66,7 @@ def run_training(config: ExperimentConfig) -> None:
     model = model.to(config.runtime.device)
 
     optimizer = build_optimizer(config.optimizer, model.parameters())
-    lr_schedule = build_lr_schedule(
-        config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps
-    )
+    lr_schedule = build_lr_schedule(config.scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps)
 
     completed_steps = 0
     checkpoint = config.checkpoint
@@ -110,3 +108,4 @@ def run_training(config: ExperimentConfig) -> None:
         output_dir=config.output_dir,
     )
     trainer.train()
+    logger.info(f"Training finished after {trainer.completed_steps} updates")

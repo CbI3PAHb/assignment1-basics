@@ -18,7 +18,6 @@ from cs336_basics.logging_setup import setup_logging
 from .trainer import Merge, Vocabulary, train_bpe
 
 DEFAULT_SPECIAL_TOKEN = "<|endoftext|>"
-BPE_LOGGER_NAME = "cs336_basics.tokenization.bpe"
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +32,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--chunk-size", type=int, default=1024 * 1024)
     parser.add_argument("--heap-after", type=int, default=300)
     parser.add_argument("--special-token", action="append", dest="special_tokens")
-    parser.add_argument("--log-file", type=Path)
-    parser.add_argument("--json-log-file", type=Path)
     parser.add_argument("--silent", action="store_true")
     return parser.parse_args(argv)
 
@@ -67,12 +64,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     special_tokens = tuple(args.special_tokens or [DEFAULT_SPECIAL_TOKEN])
 
-    setup_logging(
-        log_file=args.log_file,
-        metrics_log_file=args.metrics_log_file,
-        silent=args.silent,
-        logger_name=BPE_LOGGER_NAME,
-    )
+    setup_logging(silent=args.silent)
     logger.info("Starting BPE training")
     vocabulary, merges = train_bpe(
         input_path=args.dataset_file_path,

@@ -20,6 +20,7 @@ from typing import TextIO
 import numpy as np
 from tqdm import tqdm
 
+from cs336_basics.logging_setup import setup_logging
 from cs336_basics.tokenization.tokenizer import Tokenizer
 
 logger = logging.getLogger(__name__)
@@ -125,10 +126,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     """Run the CLI pipeline: parse, configure, train, and save."""
     args = parse_args(argv)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    setup_logging()
     logger.info(f"Encoding dataset from {args.input_path}")
     tokenizer = Tokenizer.from_pickle(args.tokenizer_file_path)
 

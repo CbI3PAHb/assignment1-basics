@@ -9,7 +9,7 @@ raise a GitHub issue or open a pull request with a fix.
 ## TODO
 - GPU tests !!!!!!
 - logging everywhere !!!!!!
-- [x] create log file in output_dir
+- [x] write application logs to stdout/stderr
 - [x] create some random-temp-dir if output_dir has not been received explicitly
 - [x] add validataion dataset
 - add validataion metrics (perplexity?)
@@ -19,6 +19,23 @@ raise a GitHub issue or open a pull request with a fix.
 - do smth with `.../training/config/...`, folder consists of too many files. It can be refactored
 
 ## Setup
+
+### Logging
+
+Application logs go to stdout (INFO and DEBUG) and stderr (WARNING and above).
+The default level is INFO; set `CS336_LOG_LEVEL=DEBUG` to include debug messages.
+Training YAML supports `logging: {silent: true}` to disable the application's
+stream handlers. Handlers installed by a host application are preserved.
+
+The application does not create log files. Capture streams using the shell or
+your job runner; choose paths outside the new training output directory:
+
+```sh
+uv run cs336-basics train run --config experiment.yaml >train.stdout.log 2>train.stderr.log
+```
+
+These streams contain formatted application messages. They are not a dedicated
+JSON metrics stream; structured metric export is a separate concern.
 
 ### Environment
 We manage our environments with `uv` to ensure reproducibility, portability, and ease of use.

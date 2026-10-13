@@ -20,6 +20,15 @@ For train:
 ```bash
 uv run cs336-basics train run --config experiment.yaml
 uv run cs336-basics train run --config /home/parii-artem/wip/EFDL/assignment1-basics/cs336_basics/training/training_presets/train_small_adamw.yaml
+uv run cs336-basics train run \
+    --config /home/parii-artem/wip/EFDL/assignment1-basics/cs336_basics/training/training_presets/train_small_adamw.yaml \
+    > owt_train.stdout.log \
+    2> owt_train.stderr.log
+```
+```bash
+uv run cs336-basics train run \
+    --config /home/parii-artem/wip/EFDL/assignment1-basics/cs336_basics/training/training_presets/train_small_adamw.yaml 
+rm -r /home/parii-artem/wip/EFDL/assignment1-basics/artifacts/training/train_small_adamw
 ```
 
 For dry-run - only check training config:

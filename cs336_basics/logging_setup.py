@@ -1,59 +1,58 @@
-"""Configure console, text-file and JSON-message logging for a named application."""
+"""Configure application logging to stdout and stderr; never open log files."""
 
 import logging
-from pathlib import Path
+import os
+import sys
 
 
-def _close_handlers(logger: logging.Logger) -> None:
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-        handler.close()
+class _MaxLevelFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno <= logging.INFO
 
 
-def setup_logging(
-    *,
-    log_file: Path | None,
-    metrics_log_file: Path | None,
-    silent: bool,
-    logger_name: str = "cs336_basics",
-) -> None:
-    """Configure a logger and its children"""
+class _ApplicationStreamHandler(logging.StreamHandler):
+    """Mark handlers owned by setup_logging so other handlers are preserved."""
+
+
+class _ApplicationNullHandler(logging.NullHandler):
+    """Prevent logging.lastResort from producing output when silent is enabled."""
+
+
+def setup_logging(*, silent: bool = False, logger_name: str | None = None) -> None:
+    """Configure root logging by default, or an explicitly named logger scope.
+
+    DEBUG/INFO go to stdout; WARNING and above go to stderr. CS336_LOG_LEVEL
+    controls the minimum level (INFO by default). Reconfiguration replaces only
+    our handlers, preserving handlers installed by the host application.
+    """
+    level_name = os.getenv("CS336_LOG_LEVEL", "INFO").upper()
+    levels = logging.getLevelNamesMapping()
+    if level_name not in levels:
+        raise ValueError(f"Unknown CS336_LOG_LEVEL: {level_name!r}")
 
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    _close_handlers(logger)
+    logger.setLevel(levels[level_name])
+    if logger_name is not None:
+        logger.propagate = False
 
-    metrics_logger = logging.getLogger(f"{logger_name}.metrics")
-    metrics_logger.setLevel(logging.INFO)
-    metrics_logger.propagate = False
-    _close_handlers(metrics_logger)
+    for handler in logger.handlers[:]:
+        if isinstance(handler, (_ApplicationStreamHandler, _ApplicationNullHandler)):
+            logger.removeHandler(handler)
+            handler.close()
+
+    if silent:
+        logger.addHandler(_ApplicationNullHandler())
+        return
 
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
     )
+    stdout_handler = _ApplicationStreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    stdout_handler.addFilter(_MaxLevelFilter())
+    logger.addHandler(stdout_handler)
 
-    if not silent:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-    if log_file is not None:
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    if metrics_log_file is not None:
-        metrics_log_file.parent.mkdir(parents=True, exist_ok=True)
-        json_handler = logging.FileHandler(metrics_log_file, mode="w", encoding="utf-8")
-        json_handler.setLevel(logging.INFO)
-        json_handler.setFormatter(logging.Formatter("%(message)s"))
-        metrics_logger.addHandler(json_handler)
-
-    if not logger.handlers:
-        logger.addHandler(logging.NullHandler())
-    if not metrics_logger.handlers:
-        metrics_logger.addHandler(logging.NullHandler())
+    stderr_handler = _ApplicationStreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(formatter)
+    logger.addHandler(stderr_handler)

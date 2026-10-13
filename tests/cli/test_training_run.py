@@ -155,6 +155,8 @@ def test_run_trains_and_saves_completed_updates_and_resolved_config(
     resolved_path = output_dir / "config.yaml"
     assert resolved_path.is_file()
     assert load_experiment(resolved_path) == load_experiment(config_path)
+    assert not (output_dir / "log.txt").exists()
+    assert not (output_dir / "log.json").exists()
 
 
 def test_run_with_checkpoint_saving_disabled_still_trains(

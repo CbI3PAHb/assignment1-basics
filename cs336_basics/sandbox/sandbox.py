@@ -2,33 +2,14 @@ import logging
 
 import regex as re
 
+from cs336_basics.logging_setup import setup_logging
 from cs336_basics.pretokenization_example import PAT
 
-# --- 1. Настройка логгера (исправлено getLogger) ---
-# Использование name — это стандартная практика.
-# Python автоматически присваивает этой переменной имя текущего модуля.
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # Показывать на консоли только INFO и выше
-
-file_handler = logging.FileHandler("app.log", mode="w")
-file_handler.setLevel(logging.DEBUG)  # Записывать в файл всё, включая DEBUG
-
-formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
-)
-console_handler.setFormatter(formatter)
-file_handler.setFormatter(formatter)
-
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-
-logger.info("Preparing main....")
 
 
 def main():
+    setup_logging()
     logger.info("Script started.")
 
     strings = ["low"] * 5 + ["lower"] * 2 + ["widest"] * 3 + ["newest"] * 6
