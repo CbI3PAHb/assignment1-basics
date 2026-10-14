@@ -191,7 +191,16 @@ def test_evaluation_runs_at_completed_update_intervals(model, batches, tmp_path,
         trainer.config, evaluation=EvaluationConfig(do_eval=True, eval_interval=2, num_batches=1)
     )
     evaluated_steps = []
-    monkeypatch.setattr(trainer, "evaluate", lambda: evaluated_steps.append(trainer.completed_steps))
+
+    def evaluate():
+        evaluated_steps.append(trainer.completed_steps)
+        loss = torch.tensor(2.0)
+        return {
+            "evaluation_loss": loss,
+            "evaluation_perplexity": loss.exp(),
+        }
+
+    monkeypatch.setattr(trainer, "evaluate", evaluate)
 
     trainer.train()
 

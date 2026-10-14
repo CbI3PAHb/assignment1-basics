@@ -16,7 +16,7 @@ cs336_basics/
     └── trainer.py          # цикл обучения
 ```
 
-For train:
+## For train:
 ```bash
 uv run cs336-basics train run --config experiment.yaml
 uv run cs336-basics train run --config /home/parii-artem/wip/EFDL/assignment1-basics/cs336_basics/training/training_presets/train_small_adamw.yaml
@@ -31,7 +31,54 @@ uv run cs336-basics train run \
 rm -r /home/parii-artem/wip/EFDL/assignment1-basics/artifacts/training/train_small_adamw
 ```
 
-For dry-run - only check training config:
+#### For dry-run - only check training config:
 ```bash
 uv run cs336-basics train config --config experiment.yaml
+```
+
+## For inference
+
+### Mapper
+
+#### For dry-run - only check mapper config:
+
+```bash
+
+uv run cs336-basics inference mapper config \
+    --config cs336_basics/generation/presets/mapper.yaml
+```
+
+#### run
+
+```bash
+uv run cs336-basics inference mapper run \
+    --config cs336_basics/generation/presets/mapper.yaml
+```
+```bash
+uv run cs336-basics inference mapper run \
+    --config cs336_basics/generation/presets/mapper.yaml \
+    > inference_mapper.stdout.log \
+    2> inference_mapper.stderr.log
+```
+
+### Server
+
+#### For dry-run - only check server config:
+
+```bash
+uv run cs336-basics inference server config \
+    --config cs336_basics/generation/presets/server.yaml
+```
+
+#### run
+
+```bash
+uv run cs336-basics inference server run \
+    --config cs336_basics/generation/presets/server.yaml
+```
+```bash
+uv run cs336-basics inference server run \
+    --config cs336_basics/generation/presets/server.yaml \
+    > inference_server.stdout.log \
+    2> inference_server.stderr.log
 ```

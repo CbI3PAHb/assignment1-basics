@@ -148,7 +148,8 @@ def test_main_run_dispatches_the_loaded_experiment(experiment_path, monkeypatch,
     loaded = []
     dispatched = []
 
-    def record_load(path):
+    def record_load(path, config_cls):
+        assert config_cls is ExperimentConfig
         config = load_experiment(path)
         loaded.append(config)
         return config
@@ -156,7 +157,7 @@ def test_main_run_dispatches_the_loaded_experiment(experiment_path, monkeypatch,
     training_module = ModuleType("cs336_basics.training.run")
     training_module.run_training = dispatched.append
     monkeypatch.setitem(sys.modules, training_module.__name__, training_module)
-    monkeypatch.setattr(cli, "load_experiment", record_load)
+    monkeypatch.setattr(cli, "load_config", record_load)
 
     assert cli.main(["train", "run", "--config", str(experiment_path)]) is None
 

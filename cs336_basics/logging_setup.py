@@ -45,7 +45,7 @@ def setup_logging(*, silent: bool = False, logger_name: str | None = None) -> No
         return
 
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
+        "%(asctime)s - %(name)-32s - %(levelname)-8s - [%(funcName)-20s:%(lineno)4d] - %(message)s"
     )
     stdout_handler = _ApplicationStreamHandler(sys.stdout)
     stdout_handler.setFormatter(formatter)

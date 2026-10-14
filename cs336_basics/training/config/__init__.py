@@ -9,12 +9,19 @@ from .checkpoint import CheckpointConfig
 from .data import BatchingConfig, DataConfig, DatasetConfig
 from .evaluation import EvaluationConfig
 from .experiment import ExperimentConfig
+from .inference import (
+    GenerationConfig,
+    InferenceEngineConfig,
+    InferenceMapperConfig,
+    InferenceServerConfig,
+)
 from .logging import LoggingConfig
 from .loop import LoopConfig
 from .model import DEFAULT_ROPE_THETA, ModelConfig
 from .optimizer import OptimizerConfig
 from .runtime import RuntimeConfig
 from .scheduler import SchedulerConfig
+from .tokenizer import TokenizerConfig
 from .trainer import TrainerConfig
 
 __all__ = [
@@ -33,4 +40,9 @@ __all__ = [
     "LoggingConfig",
     "EvaluationConfig",
     "TrainerConfig",
+    "GenerationConfig",
+    "InferenceEngineConfig",
+    "InferenceMapperConfig",
+    "InferenceServerConfig",
+    "TokenizerConfig",
 ]
