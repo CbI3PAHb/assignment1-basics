@@ -1,0 +1,58 @@
+output_dir: /home/parii-artem/wip/EFDL/assignment1-basics/artifacts/training/train_1000_adamw
+seed: 42
+
+model:
+  vocab_size: 32000
+  context_length: 2048
+  d_model: 768
+  num_layers: 12
+  num_heads: 12
+  d_ff: 3072
+  rope_theta: 10000.0
+
+data:
+  train:
+    path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_train.bin
+    dtype: uint16
+  eval:
+    path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_valid.bin
+    dtype: uint16
+  batching:
+    type: random_sequences
+    sequence_length: 2048
+    micro_batch_size: 16
+
+optimizer:
+  type: adamw
+  lr: 0.0004
+  betas: [0.9, 0.95]
+  eps: 0.00000001
+  weight_decay: 0.1
+
+scheduler:
+  type: cosine
+  warmup_steps: 100
+  min_lr: 0.000001
+
+loop:
+  max_steps: 2000
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+
+runtime:
+  device: cuda
+
+checkpoint:
+  resume_from: null
+  init_weights_from: null
+  save_checkpoint: false
+  save_checkpoint_interval: null
+  save_checkpoint_at_the_end: false
+
+logging:
+  silent: false
+
+evaluation:
+  do_eval: true
+  eval_interval: 100
+  num_batches: 20

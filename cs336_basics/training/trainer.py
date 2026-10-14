@@ -41,6 +41,22 @@ class Trainer:
         self.config = config
         self.output_dir = output_dir
 
+    def _log_train_metrics(self, loss: torch.Tensor):
+        if self.completed_steps % 10 == 0:
+            logger.info(
+                f"[train] step = {self.completed_steps:05d} | "
+                f"lr = {self.optimizer.param_groups[0]['lr']:>12.6e} | "
+                f"loss = {loss.item():12f} |"
+            )
+
+    def _log_eval_metrics(self, eval_metrics: dict[str, torch.Tensor]):
+        logger.info(
+            f"[eval]  step = {self.completed_steps:05d} | "
+            f"lr = {self.optimizer.param_groups[0]['lr']:>12.6e} | "
+            f"loss = {eval_metrics['evaluation_loss'].item():12f} | "
+            f"perplexity = {eval_metrics['evaluation_perplexity'].item():12f} |"
+        )
+
     def train(self) -> None:
         logger.info(
             f"Training started: {self.completed_steps} completed steps / {self.config.loop.max_steps} max steps"
@@ -51,11 +67,15 @@ class Trainer:
             loss = self.train_step()
             self.completed_steps += 1
 
+            self._log_train_metrics(loss)
+
             if (
                 self.config.evaluation.do_eval
                 and self.completed_steps % self.config.evaluation.eval_interval == 0
             ):
-                self.evaluate()
+                eval_metrics: dict[str, torch.Tensor] = self.evaluate()
+                self._log_eval_metrics(eval_metrics)
+
             if (
                 self.config.checkpoint.save_checkpoint
                 and self.config.checkpoint.save_checkpoint_interval is not None
@@ -66,10 +86,6 @@ class Trainer:
                 self._save_checkpoint()
                 last_saved_step = self.completed_steps
 
-            if self.completed_steps % 10 == 0:
-                logger.info(
-                    f"step = {self.completed_steps:05d} | loss = {loss.item():12f} | lr = {self.optimizer.param_groups[0]['lr']:>12.6e}"
-                )
         if (
             self.config.checkpoint.save_checkpoint
             and self.config.checkpoint.save_checkpoint_at_the_end
