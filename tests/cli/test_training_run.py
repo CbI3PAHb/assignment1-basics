@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from cs336_basics import cli
 from cs336_basics.training import run as training_run
-from cs336_basics.training.config.io import load_experiment
+from cs336_basics.config.io import load_experiment
 
 
 class TinyLM(nn.Module):

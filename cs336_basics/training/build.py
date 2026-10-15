@@ -9,16 +9,10 @@ from torch.optim import Optimizer
 
 from cs336_basics.optimizer.adamw import AdamW
 from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
-from cs336_basics.transformers.transformers import TransformerLM
 
-from .config.data import DatasetConfig
-from .config.model import ModelConfig
-from .config.optimizer import OptimizerConfig
-from .config.scheduler import SchedulerConfig
-
-
-def build_model(config: ModelConfig) -> TransformerLM:
-    return TransformerLM(**attrs.asdict(config, recurse=False))
+from ..config.data import DatasetConfig
+from ..config.optimizer import OptimizerConfig
+from ..config.scheduler import SchedulerConfig
 
 
 def build_optimizer(

@@ -6,7 +6,7 @@ from torch import nn
 from attrs import evolve
 
 from cs336_basics.training import trainer as trainer_module
-from cs336_basics.training.config import CheckpointConfig, EvaluationConfig, LoopConfig, TrainerConfig
+from cs336_basics.config import CheckpointConfig, EvaluationConfig, LoopConfig, TrainerConfig
 from cs336_basics.training.trainer import Trainer
 
 

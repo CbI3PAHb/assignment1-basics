@@ -19,6 +19,3 @@ class TrainerConfig:
         factory=EvaluationConfig,
         validator=attrs.validators.instance_of(EvaluationConfig),
     )
-    logging: LoggingConfig = attrs.field(
-        factory=LoggingConfig, validator=attrs.validators.instance_of(LoggingConfig)
-    )

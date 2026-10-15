@@ -7,7 +7,7 @@ from attrs import asdict
 from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 from yaml.constructor import ConstructorError
 
-from cs336_basics.training.config import (
+from cs336_basics.config import (
     DEFAULT_ROPE_THETA,
     BatchingConfig,
     CheckpointConfig,
@@ -21,7 +21,7 @@ from cs336_basics.training.config import (
     RuntimeConfig,
     SchedulerConfig,
 )
-from cs336_basics.training.config.io import dump_experiment, load_experiment
+from cs336_basics.config.io import dump_experiment, load_experiment
 
 from ._helpers import exception_leaves
 

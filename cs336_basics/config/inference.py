@@ -25,14 +25,8 @@ class InferenceEngineConfig:
     tokenizer: TokenizerConfig = attrs.field(
         validator=attrs.validators.instance_of(TokenizerConfig)
     )
-    seed: int = attrs.field(
-        default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)]
-    )
     runtime: RuntimeConfig = attrs.field(
         factory=RuntimeConfig, validator=attrs.validators.instance_of(RuntimeConfig)
-    )
-    logging: LoggingConfig = attrs.field(
-        factory=LoggingConfig, validator=attrs.validators.instance_of(LoggingConfig)
     )
 
 
@@ -54,6 +48,12 @@ class InferenceMapperConfig:
         default=None, converter=attrs.converters.optional(_to_path)
     )
     output_dir: Path = attrs.field(factory=_default_output_dir, converter=_to_path)
+    seed: int = attrs.field(
+        default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)]
+    )
+    logging: LoggingConfig = attrs.field(
+        factory=LoggingConfig, validator=attrs.validators.instance_of(LoggingConfig)
+    )
 
 
 @attrs.frozen(kw_only=True)
@@ -63,3 +63,9 @@ class InferenceServerConfig:
     host: str = "127.0.0.1"
     port: int = 8000
     max_pending_requests: int = 16
+    seed: int = attrs.field(
+        default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)]
+    )
+    logging: LoggingConfig = attrs.field(
+        factory=LoggingConfig, validator=attrs.validators.instance_of(LoggingConfig)
+    )

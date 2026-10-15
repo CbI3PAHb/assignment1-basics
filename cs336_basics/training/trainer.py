@@ -9,7 +9,7 @@ from cs336_basics.checkpoint.checkpoint import save_checkpoint
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import cross_entropy_loss
 
-from .config import TrainerConfig
+from ..config import TrainerConfig
 
 logger = logging.getLogger(__name__)
 

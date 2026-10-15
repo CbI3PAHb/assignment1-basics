@@ -43,7 +43,6 @@ uv run cs336-basics train config --config experiment.yaml
 #### For dry-run - only check mapper config:
 
 ```bash
-
 uv run cs336-basics inference mapper config \
     --config cs336_basics/generation/presets/mapper.yaml
 ```

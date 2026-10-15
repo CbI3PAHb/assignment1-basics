@@ -8,8 +8,8 @@ from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 from yaml.constructor import ConstructorError
 
 from cs336_basics import cli
-from cs336_basics.training.config import ConfigError, ExperimentConfig
-from cs336_basics.training.config.io import load_experiment
+from cs336_basics.config import ConfigError, ExperimentConfig
+from cs336_basics.config.io import load_experiment
 
 
 @pytest.mark.parametrize("action", ["run", "config"])

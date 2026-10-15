@@ -6,7 +6,7 @@ import pytest
 from attrs import asdict, evolve
 from attrs.exceptions import FrozenInstanceError
 
-from cs336_basics.training.config import (
+from cs336_basics.config import (
     BatchingConfig,
     CheckpointConfig,
     ConfigError,
@@ -19,7 +19,7 @@ from cs336_basics.training.config import (
     RuntimeConfig,
     SchedulerConfig,
 )
-from cs336_basics.training.config import experiment as experiment_module
+from cs336_basics.config import experiment as experiment_module
 
 
 @pytest.fixture

@@ -7,8 +7,8 @@ import cattrs
 import pytest
 from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 
-from cs336_basics.training.config import ConfigError, ExperimentConfig
-from cs336_basics.training.config._cattrs import _make_converter
+from cs336_basics.config import ConfigError, ExperimentConfig
+from cs336_basics.config._cattrs import _make_converter
 
 from ._helpers import exception_leaves
 

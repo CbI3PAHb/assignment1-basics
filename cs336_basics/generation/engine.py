@@ -1,10 +1,9 @@
 import torch.nn as nn
 
+from cs336_basics.config.inference import GenerationConfig, InferenceEngineConfig
+from cs336_basics.tokenization.build import build_tokenizer
 from cs336_basics.tokenization.tokenizer import Tokenizer
-from cs336_basics.training.config.inference import (
-    GenerationConfig,
-    InferenceEngineConfig,
-)
+from cs336_basics.transformers.build import build_model
 
 
 class InferenceEngine:
@@ -23,5 +22,10 @@ class InferenceEngine:
 
 def build_inference_engine(config: InferenceEngineConfig) -> InferenceEngine:
     """Build the model, load its weights and tokenizer, and set evaluation mode."""
+    model = build_model(config.model)
+    tokenizer = build_tokenizer(config.tokenizer)
 
-    raise NotImplementedError("Inference engine initialization is not implemented yet")
+    return InferenceEngine(
+        model=model,
+        tokenizer=tokenizer,
+    )

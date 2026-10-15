@@ -10,14 +10,14 @@ from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 from yaml.constructor import ConstructorError
 
 from cs336_basics import cli
-from cs336_basics.training.config.inference import (
+from cs336_basics.config.inference import (
     GenerationConfig,
     InferenceEngineConfig,
     InferenceMapperConfig,
     InferenceServerConfig,
 )
-from cs336_basics.training.config.io import dump_config, load_config
-from cs336_basics.training.config.tokenizer import TokenizerConfig
+from cs336_basics.config.io import dump_config, load_config
+from cs336_basics.config.tokenizer import TokenizerConfig
 
 from ._helpers import exception_leaves
 

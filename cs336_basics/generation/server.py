@@ -1,4 +1,4 @@
-from cs336_basics.training.config.inference import InferenceServerConfig
+from cs336_basics.config.inference import InferenceServerConfig
 
 
 def run_inference_server(config: InferenceServerConfig) -> None:

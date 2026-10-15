@@ -2,47 +2,30 @@
 
 import logging
 from functools import partial
-from pathlib import Path
 
 import torch
 
 from cs336_basics.checkpoint.checkpoint import load_checkpoint, load_model_weights
 from cs336_basics.dataloader.dataloader import get_batch
 from cs336_basics.logging_setup import setup_logging
+from cs336_basics.prepare_output_directory import _prepare_output_directory
 from cs336_basics.training.reproducibility import seed_everything
+from cs336_basics.transformers.build import build_model
 
-from .build import build_lr_schedule, build_model, build_optimizer, load_dataset
-from .config.experiment import ExperimentConfig
-from .config.io import dump_experiment
-from .config.trainer import TrainerConfig
+from ..config.experiment import ExperimentConfig
+from ..config.io import dump_experiment
+from ..config.trainer import TrainerConfig
+from .build import build_lr_schedule, build_optimizer, load_dataset
 from .trainer import Trainer
 
 logger = logging.getLogger(__name__)
-
-
-def _prepare_output(output_dir: Path, config_yaml: str) -> None:
-    output_dir.mkdir(parents=True, exist_ok=False)
-    config_path = output_dir / "config.yaml"
-    config_created = False
-    try:
-        with config_path.open("x", encoding="utf-8") as config_file:
-            config_created = True
-            config_file.write(config_yaml)
-    except BaseException:
-        # Remove only our new config and directory; preserve unrelated files.
-        try:
-            if config_created:
-                config_path.unlink(missing_ok=True)
-            output_dir.rmdir()
-        except OSError:
-            pass
-        raise
 
 
 def run_training(config: ExperimentConfig) -> None:
     """Prepare a new run directory, restore optional state, and execute training."""
 
     setup_logging(silent=config.logging.silent)
+    seed_everything(config.seed)
     logger.info(f"Experiment config:\n{dump_experiment(config)}")
     logger.info(f"Starting training run in {config.output_dir}")
 
@@ -51,7 +34,7 @@ def run_training(config: ExperimentConfig) -> None:
     if config.runtime.device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested, but no CUDA device is available")
 
-    _prepare_output(config.output_dir, dump_experiment(config))
+    _prepare_output_directory(config.output_dir, dump_experiment(config))
 
     train_dataset = load_dataset(config.data.train)
     eval_dataset = load_dataset(config.data.eval)
@@ -62,7 +45,6 @@ def run_training(config: ExperimentConfig) -> None:
                 f"{split} dataset must contain at least {batching.sequence_length + 1} tokens, got {dataset.size}"
             )
 
-    seed_everything(config.seed)
     model = build_model(config.model)
     model = model.to(config.runtime.device)
 
@@ -110,7 +92,6 @@ def run_training(config: ExperimentConfig) -> None:
             loop=config.loop,
             checkpoint=config.checkpoint,
             evaluation=config.evaluation,
-            logging=config.logging,
         ),
         output_dir=config.output_dir,
     )

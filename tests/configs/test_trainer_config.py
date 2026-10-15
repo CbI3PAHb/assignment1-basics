@@ -1,6 +1,6 @@
 import pytest
 
-from cs336_basics.training.config import (
+from cs336_basics.config import (
     CheckpointConfig,
     EvaluationConfig,
     LoggingConfig,
@@ -15,7 +15,6 @@ def test_trainer_config_needs_no_model_or_dataset_settings():
     assert config.loop.max_steps == 1
     assert config.checkpoint == CheckpointConfig()
     assert config.evaluation == EvaluationConfig()
-    assert config.logging == LoggingConfig()
 
 
 @pytest.mark.parametrize("field", ["loop", "checkpoint", "evaluation", "logging"])

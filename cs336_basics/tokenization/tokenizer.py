@@ -43,7 +43,7 @@ class Tokenizer:
         vocab_filepath: str,
         merges_filepath: str,
         special_tokens: list[str] | None = None,
-    ):
+    ) -> "Tokenizer":
         with open(vocab_filepath) as vocab_f:
             vocab = json.load(vocab_f)
 
@@ -114,7 +114,7 @@ class Tokenizer:
         return b"".join([self.vocab[i] for i in ids]).decode("utf-8", errors="replace")
 
     @classmethod
-    def from_pickle(cls, path: Path):
+    def from_pickle(cls, path: Path) -> "Tokenizer":
         with open(path, "rb") as file:
             payload = pickle.load(file)
 

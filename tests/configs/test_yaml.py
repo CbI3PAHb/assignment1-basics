@@ -2,7 +2,7 @@ import pytest
 import yaml
 from yaml.constructor import ConstructorError
 
-from cs336_basics.training.config._yaml import _UniqueKeyLoader
+from cs336_basics.config._yaml import _UniqueKeyLoader
 
 
 def _load(text: str):

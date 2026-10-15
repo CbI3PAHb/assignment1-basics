@@ -4,9 +4,9 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from .training.config.experiment import ExperimentConfig
-from .training.config.inference import InferenceMapperConfig, InferenceServerConfig
-from .training.config.io import dump_config, load_config
+from .config.experiment import ExperimentConfig
+from .config.inference import InferenceMapperConfig, InferenceServerConfig
+from .config.io import dump_config, load_config
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
