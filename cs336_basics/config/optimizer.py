@@ -13,7 +13,7 @@ SUPPORTED_OPTIMIZER_TYPES = get_args(OptimizerType)
 
 @attrs.frozen(kw_only=True)
 class OptimizerConfig:
-    """Optimizer settings; lr is the peak learning rate used by the scheduler"""
+    """Optimizer settings; lr is the peak learning rate used by the lr_scheduler"""
 
     lr: float = attrs.field(default=1e-3, validator=_POSITIVE_NUMBER)
     type: OptimizerType = attrs.field(

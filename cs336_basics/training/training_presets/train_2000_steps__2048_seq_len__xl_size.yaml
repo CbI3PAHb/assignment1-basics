@@ -29,7 +29,7 @@ optimizer:
   eps: 0.00000001
   weight_decay: 0.1
 
-scheduler:
+lr_scheduler:
   type: cosine
   warmup_steps: 100
   min_lr: 0.000001

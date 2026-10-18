@@ -19,7 +19,7 @@ from cs336_basics.config import (
     ModelConfig,
     OptimizerConfig,
     RuntimeConfig,
-    SchedulerConfig,
+    LRSchedulerConfig,
 )
 from cs336_basics.config.io import dump_experiment, load_experiment
 
@@ -47,7 +47,7 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
     raw_experiment["data"]["batching"].pop("type", None)
     raw_experiment["loop"].pop("gradient_accumulation_steps", None)
     raw_experiment["loop"].pop("max_grad_norm", None)
-    for field in ("seed", "scheduler", "runtime", "checkpoint"):
+    for field in ("seed", "lr_scheduler", "runtime", "checkpoint"):
         raw_experiment.pop(field, None)
 
     path = _write_yaml(tmp_path, raw_experiment)
@@ -61,7 +61,7 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
     assert isinstance(config.data.batching, BatchingConfig)
     assert isinstance(config.loop, LoopConfig)
     assert isinstance(config.optimizer, OptimizerConfig)
-    assert isinstance(config.scheduler, SchedulerConfig)
+    assert isinstance(config.lr_scheduler, LRSchedulerConfig)
     assert isinstance(config.runtime, RuntimeConfig)
     assert isinstance(config.checkpoint, CheckpointConfig)
     assert config.output_dir == Path("результаты/эксперимент")
@@ -73,7 +73,7 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
     assert config.loop.gradient_accumulation_steps == 1
     assert config.loop.max_grad_norm == 1.0
     assert config.optimizer == OptimizerConfig()
-    assert config.scheduler == SchedulerConfig()
+    assert config.lr_scheduler == LRSchedulerConfig()
     assert config.runtime == RuntimeConfig()
     assert config.checkpoint == CheckpointConfig()
     assert config.seed == 42
@@ -258,7 +258,7 @@ def test_load_experiment_rejects_nonfinite_numbers(tmp_path, raw_experiment, fie
     [
         ("runtime.device", "mps"),
         ("optimizer.type", "sgd"),
-        ("scheduler.type", "linear"),
+        ("lr_scheduler.type", "linear"),
         ("data.train.dtype", "float32"),
         ("data.batching.type", "sequential"),
     ],
@@ -284,9 +284,9 @@ def test_load_experiment_checks_field_relationships(tmp_path, raw_experiment, co
         _set_value(raw_experiment, "data.batching.sequence_length", raw_experiment["model"]["context_length"] + 1)
     elif constraint == "min_lr":
         _set_value(raw_experiment, "optimizer.lr", 0.001)
-        _set_value(raw_experiment, "scheduler.min_lr", 0.002)
+        _set_value(raw_experiment, "lr_scheduler.min_lr", 0.002)
     elif constraint == "warmup_steps":
-        _set_value(raw_experiment, "scheduler.warmup_steps", raw_experiment["loop"]["max_steps"])
+        _set_value(raw_experiment, "lr_scheduler.warmup_steps", raw_experiment["loop"]["max_steps"])
     elif constraint == "divisible":
         raw_experiment["model"].update(d_model=10, num_heads=4)
     elif constraint == "even":
@@ -362,7 +362,7 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "loop",
         "logging",
         "seed",
-        "scheduler",
+        "lr_scheduler",
         "runtime",
         "checkpoint",
         "evaluation",
@@ -380,7 +380,7 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "weight_decay": 0.01,
     }
     assert raw["loop"] == {"max_steps": 100, "gradient_accumulation_steps": 1, "max_grad_norm": 1.0}
-    assert raw["scheduler"] == {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6}
+    assert raw["lr_scheduler"] == {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6}
     assert raw["runtime"] == {"device": "cuda"}
     assert raw["checkpoint"] == {
         "resume_from": None,
@@ -439,7 +439,7 @@ def test_dump_experiment_round_trips_through_load(tmp_path, raw_experiment, chec
     raw_experiment["data"]["train"]["dtype"] = "uint32"
     raw_experiment["optimizer"].update(lr=0.0005, betas=[0.8, 0.95], weight_decay=0)
     raw_experiment["loop"]["gradient_accumulation_steps"] = 2
-    raw_experiment["scheduler"] = {"min_lr": 0, "warmup_steps": 1}
+    raw_experiment["lr_scheduler"] = {"min_lr": 0, "warmup_steps": 1}
     raw_experiment["runtime"] = {"device": "cpu"}
     raw_experiment["checkpoint"] = dict(save_policy)
     if checkpoint_mode == "resume":

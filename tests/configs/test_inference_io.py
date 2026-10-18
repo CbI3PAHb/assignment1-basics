@@ -11,7 +11,7 @@ from yaml.constructor import ConstructorError
 
 from cs336_basics import cli
 from cs336_basics.config.inference import (
-    GenerationConfig,
+    SamplingParams,
     InferenceEngineConfig,
     InferenceMapperConfig,
     InferenceServerConfig,

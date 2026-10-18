@@ -31,7 +31,7 @@ class InferenceEngineConfig:
 
 
 @attrs.frozen(kw_only=True)
-class GenerationConfig:
+class SamplingParams:
     """Sampling settings"""
 
     max_new_tokens: int = 64
@@ -42,7 +42,7 @@ class GenerationConfig:
 @attrs.frozen(kw_only=True)
 class InferenceMapperConfig:
     engine: InferenceEngineConfig
-    generation: GenerationConfig = attrs.field(factory=GenerationConfig)
+    generation: SamplingParams = attrs.field(factory=SamplingParams)
     prompt: str | None = None
     input_path: Path | None = attrs.field(
         default=None, converter=attrs.converters.optional(_to_path)
@@ -59,7 +59,7 @@ class InferenceMapperConfig:
 @attrs.frozen(kw_only=True)
 class InferenceServerConfig:
     engine: InferenceEngineConfig
-    generation: GenerationConfig = attrs.field(factory=GenerationConfig)
+    generation: SamplingParams = attrs.field(factory=SamplingParams)
     host: str = "127.0.0.1"
     port: int = 8000
     max_pending_requests: int = 16

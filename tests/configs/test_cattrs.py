@@ -75,7 +75,7 @@ def test_checkpoint_flags_reject_boolean_coercion(converter, raw_experiment, fie
         (("data", "batching", "micro_batch_size"), True),
         (("model", "num_layers"), "2"),
         (("loop", "max_steps"), 100.0),
-        (("scheduler", "warmup_steps"), False),
+        (("lr_scheduler", "warmup_steps"), False),
         (("checkpoint", "save_checkpoint_interval"), 5.0),
         (("checkpoint", "save_checkpoint_interval"), "5"),
         (("checkpoint", "save_checkpoint_interval"), True),
@@ -112,7 +112,7 @@ def test_optional_integer_accepts_none_or_integer(converter, raw_experiment, sav
         (("optimizer", "eps"), "1e-8"),
         (("optimizer", "weight_decay"), False),
         (("loop", "max_grad_norm"), "1.0"),
-        (("scheduler", "min_lr"), True),
+        (("lr_scheduler", "min_lr"), True),
     ],
 )
 def test_nested_float_fields_reject_coercible_nonnumbers(converter, raw_experiment, path, value):
@@ -130,7 +130,7 @@ def test_nested_float_fields_reject_coercible_nonnumbers(converter, raw_experime
 def test_nested_float_fields_accept_integer_values(converter, raw_experiment):
     raw_experiment["model"]["rope_theta"] = 10_000
     raw_experiment["optimizer"] = {"lr": 1, "eps": 1, "weight_decay": 0, "betas": [0, 0.9]}
-    raw_experiment["scheduler"] = {"min_lr": 0}
+    raw_experiment["lr_scheduler"] = {"min_lr": 0}
     raw_experiment["loop"]["max_grad_norm"] = 1
 
     config = converter.structure(raw_experiment, ExperimentConfig)
@@ -140,7 +140,7 @@ def test_nested_float_fields_accept_integer_values(converter, raw_experiment):
     assert config.optimizer.eps == 1
     assert config.optimizer.weight_decay == 0
     assert config.optimizer.betas == (0, 0.9)
-    assert config.scheduler.min_lr == 0
+    assert config.lr_scheduler.min_lr == 0
     assert config.loop.max_grad_norm == 1
 
 
@@ -154,7 +154,7 @@ def test_nested_float_fields_accept_integer_values(converter, raw_experiment):
         ("data", "batching"),
         ("optimizer",),
         ("loop",),
-        ("scheduler",),
+        ("lr_scheduler",),
         ("runtime",),
         ("checkpoint",),
     ],

@@ -16,7 +16,7 @@ from .loop import LoopConfig
 from .model import ModelConfig
 from .optimizer import OptimizerConfig
 from .runtime import RuntimeConfig
-from .scheduler import SchedulerConfig
+from .lr_scheduler import LRSchedulerConfig
 
 
 def _default_output_dir() -> Path:
@@ -41,8 +41,8 @@ class ExperimentConfig:
     seed: int = attrs.field(
         default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)]
     )
-    scheduler: SchedulerConfig = attrs.field(
-        factory=SchedulerConfig, validator=attrs.validators.instance_of(SchedulerConfig)
+    lr_scheduler: LRSchedulerConfig = attrs.field(
+        factory=LRSchedulerConfig, validator=attrs.validators.instance_of(LRSchedulerConfig)
     )
     runtime: RuntimeConfig = attrs.field(
         factory=RuntimeConfig, validator=attrs.validators.instance_of(RuntimeConfig)
@@ -66,12 +66,12 @@ class ExperimentConfig:
                 "sequence_length must not exceed model.context_length, "
                 f"got {self.data.batching.sequence_length} > {self.model.context_length}"
             )
-        if self.scheduler.min_lr > self.optimizer.lr:
+        if self.lr_scheduler.min_lr > self.optimizer.lr:
             raise ConfigError(
-                f"scheduler.min_lr must not exceed optimizer.lr, got {self.scheduler.min_lr} > {self.optimizer.lr}"
+                f"lr_scheduler.min_lr must not exceed optimizer.lr, got {self.lr_scheduler.min_lr} > {self.optimizer.lr}"
             )
-        if self.scheduler.warmup_steps >= self.loop.max_steps:
+        if self.lr_scheduler.warmup_steps >= self.loop.max_steps:
             raise ConfigError(
-                "scheduler.warmup_steps must be less than loop.max_steps, "
-                f"got {self.scheduler.warmup_steps} >= {self.loop.max_steps}"
+                "lr_scheduler.warmup_steps must be less than loop.max_steps, "
+                f"got {self.lr_scheduler.warmup_steps} >= {self.loop.max_steps}"
             )

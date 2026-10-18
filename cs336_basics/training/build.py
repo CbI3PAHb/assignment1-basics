@@ -12,7 +12,7 @@ from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
 
 from ..config.data import DatasetConfig
 from ..config.optimizer import OptimizerConfig
-from ..config.scheduler import SchedulerConfig
+from ..config.lr_scheduler import LRSchedulerConfig
 
 
 def build_optimizer(
@@ -44,7 +44,7 @@ def load_dataset(config: DatasetConfig) -> np.memmap:
 
 
 def build_lr_schedule(
-    config: SchedulerConfig,
+    config: LRSchedulerConfig,
     *,
     peak_lr: float,
     max_steps: int,
@@ -64,4 +64,4 @@ def build_lr_schedule(
 
             return schedule
         case _:
-            raise NotImplementedError(f"Unsupported scheduler type: {config.type!r}")
+            raise NotImplementedError(f"Unsupported lr_scheduler type: {config.type!r}")

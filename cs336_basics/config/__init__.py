@@ -10,7 +10,7 @@ from .data import BatchingConfig, DataConfig, DatasetConfig
 from .evaluation import EvaluationConfig
 from .experiment import ExperimentConfig
 from .inference import (
-    GenerationConfig,
+    SamplingParams,
     InferenceEngineConfig,
     InferenceMapperConfig,
     InferenceServerConfig,
@@ -20,7 +20,7 @@ from .loop import LoopConfig
 from .model import DEFAULT_ROPE_THETA, ModelConfig
 from .optimizer import OptimizerConfig
 from .runtime import RuntimeConfig
-from .scheduler import SchedulerConfig
+from .lr_scheduler import LRSchedulerConfig
 from .tokenizer import TokenizerConfig
 from .trainer import TrainerConfig
 
@@ -36,11 +36,11 @@ __all__ = [
     "ModelConfig",
     "OptimizerConfig",
     "RuntimeConfig",
-    "SchedulerConfig",
+    "LRSchedulerConfig",
     "LoggingConfig",
     "EvaluationConfig",
     "TrainerConfig",
-    "GenerationConfig",
+    "SamplingParams",
     "InferenceEngineConfig",
     "InferenceMapperConfig",
     "InferenceServerConfig",

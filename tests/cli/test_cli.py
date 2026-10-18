@@ -125,7 +125,7 @@ def test_main_config_prints_complete_yaml_without_importing_training(
         },
         "logging": {"silent": False},
         "seed": 42,
-        "scheduler": {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6},
+        "lr_scheduler": {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6},
         "runtime": {"device": "cuda"},
         "checkpoint": {
             "resume_from": None,

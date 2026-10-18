@@ -17,7 +17,7 @@ from cs336_basics.config import (
     ModelConfig,
     OptimizerConfig,
     RuntimeConfig,
-    SchedulerConfig,
+    LRSchedulerConfig,
 )
 from cs336_basics.config import experiment as experiment_module
 
@@ -112,10 +112,10 @@ def test_optimizer_rejects_invalid_betas(betas):
 
 
 def test_zero_is_valid_for_nonnegative_settings():
-    assert SchedulerConfig(min_lr=0, warmup_steps=0).min_lr == 0
+    assert LRSchedulerConfig(min_lr=0, warmup_steps=0).min_lr == 0
     assert OptimizerConfig(weight_decay=0, betas=[0, 0]).weight_decay == 0
     with pytest.raises(ValueError):
-        SchedulerConfig(min_lr=-1)
+        LRSchedulerConfig(min_lr=-1)
     with pytest.raises(ValueError):
         CheckpointConfig(save_checkpoint_interval=0)
 
@@ -126,12 +126,12 @@ def test_experiment_checks_component_compatibility(experiment):
         evolve(experiment, data=evolve(experiment.data, batching=oversized_batching))
     with pytest.raises(ConfigError, match="min_lr"):
         evolve(
-            experiment, scheduler=SchedulerConfig(min_lr=experiment.optimizer.lr * 2)
+            experiment, lr_scheduler=LRSchedulerConfig(min_lr=experiment.optimizer.lr * 2)
         )
     with pytest.raises(ConfigError, match="warmup_steps"):
         evolve(
             experiment,
-            scheduler=SchedulerConfig(warmup_steps=experiment.loop.max_steps),
+            lr_scheduler=LRSchedulerConfig(warmup_steps=experiment.loop.max_steps),
         )
 
     compatible = evolve(
@@ -140,7 +140,7 @@ def test_experiment_checks_component_compatibility(experiment):
             experiment.data,
             batching=evolve(experiment.data.batching, sequence_length=128),
         ),
-        scheduler=SchedulerConfig(min_lr=experiment.optimizer.lr, warmup_steps=99),
+        lr_scheduler=LRSchedulerConfig(min_lr=experiment.optimizer.lr, warmup_steps=99),
     )
     assert compatible.data.batching.sequence_length == compatible.model.context_length
 
@@ -215,7 +215,7 @@ def test_gradient_clipping_requires_positive_finite_number(value):
 @pytest.mark.parametrize("value", [-1, 1.5, True, "10"])
 def test_warmup_requires_nonnegative_integer(value):
     with pytest.raises((TypeError, ValueError), match="warmup_steps"):
-        SchedulerConfig(warmup_steps=value)
+        LRSchedulerConfig(warmup_steps=value)
 
 
 @pytest.mark.parametrize("value", [0, -1, 1.5, True, "10"])
@@ -293,7 +293,7 @@ def test_checkpoint_rejects_invalid_paths(field, path):
         CheckpointConfig(**{field: path})
 
 
-@pytest.mark.parametrize("field", ["model", "data", "optimizer", "loop", "scheduler", "runtime", "checkpoint"])
+@pytest.mark.parametrize("field", ["model", "data", "optimizer", "loop", "lr_scheduler", "runtime", "checkpoint"])
 def test_experiment_requires_config_objects_for_components(experiment, field):
     with pytest.raises(TypeError, match=field):
         evolve(experiment, **{field: {}})
@@ -307,7 +307,7 @@ def test_data_requires_dataset_and_batching_config_objects(experiment, field):
 
 @pytest.mark.parametrize(
     "config_class, kwargs",
-    [(OptimizerConfig, {"type": "sgd"}), (SchedulerConfig, {"type": "linear"})],
+    [(OptimizerConfig, {"type": "sgd"}), (LRSchedulerConfig, {"type": "linear"})],
 )
 def test_optimizer_and_scheduler_reject_unsupported_types(config_class, kwargs):
     with pytest.raises(ValueError, match="type"):
@@ -328,7 +328,7 @@ def test_batching_rejects_unsupported_strategy():
         ("data.batching", "micro_batch_size"),
         ("optimizer", "lr"),
         ("loop", "max_steps"),
-        ("scheduler", "min_lr"),
+        ("lr_scheduler", "min_lr"),
         ("runtime", "device"),
         ("checkpoint", "resume_from"),
     ],

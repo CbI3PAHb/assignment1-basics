@@ -68,7 +68,7 @@ def _write_tokens(raw, count=96):
 def cpu_experiment(minimal_experiment, built_components):
     minimal_experiment["runtime"] = {"device": "cpu"}
     minimal_experiment["optimizer"] = {"lr": 0.02}
-    minimal_experiment["scheduler"] = {"min_lr": 0.001}
+    minimal_experiment["lr_scheduler"] = {"min_lr": 0.001}
     minimal_experiment["checkpoint"] = {"save_checkpoint": True, "save_checkpoint_interval": 2}
     minimal_experiment["loop"]["gradient_accumulation_steps"] = 2
     _write_tokens(minimal_experiment)
