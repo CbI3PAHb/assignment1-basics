@@ -3,7 +3,7 @@
 import attrs
 
 from ._errors import ConfigError
-from ._validators import _POSITIVE_INTEGER, _POSITIVE_NUMBER
+from ._validation import _POSITIVE_INTEGER, _POSITIVE_NUMBER
 
 DEFAULT_ROPE_THETA = 10_000.0
 

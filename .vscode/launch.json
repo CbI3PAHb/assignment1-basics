@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "dummy mapper",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "module": "cs336_basics",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "MINISGL_DISABLE_OVERLAP_SCHEDULING": "1"
+            },
+            "args": [
+                "inference",
+                "mapper",
+                "run",
+                "--config",
+                "${workspaceFolder}/cs336_basics/generation_2/presets/mapper.yaml"
+            ]
+        }
+    ]
+}

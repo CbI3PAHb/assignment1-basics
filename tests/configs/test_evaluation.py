@@ -6,7 +6,7 @@ from attrs import evolve
 from attrs.exceptions import FrozenInstanceError
 from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 
-from cs336_basics.config.evaluation import EvaluationConfig, EvaluationConfigError
+from cs336_basics.config.training import EvaluationConfig, EvaluationConfigError
 from cs336_basics.config.io import dump_experiment, load_experiment
 
 from ._helpers import exception_leaves

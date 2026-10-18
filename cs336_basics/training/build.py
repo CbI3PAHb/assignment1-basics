@@ -10,9 +10,7 @@ from torch.optim import Optimizer
 from cs336_basics.optimizer.adamw import AdamW
 from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
 
-from ..config.data import DatasetConfig
-from ..config.optimizer import OptimizerConfig
-from ..config.lr_scheduler import LRSchedulerConfig
+from ..config.training import DatasetConfig, LRSchedulerConfig, OptimizerConfig
 
 
 def build_optimizer(

@@ -1,6 +1,6 @@
 import pytest
 
-from cs336_basics.config._cattrs import _make_converter
+from cs336_basics.config.io import _make_converter
 
 
 @pytest.fixture

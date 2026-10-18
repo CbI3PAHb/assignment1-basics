@@ -4,9 +4,11 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from .config.experiment import ExperimentConfig
+from cs336_basics.logging_setup import setup_logging
+
 from .config.inference import InferenceMapperConfig, InferenceServerConfig
 from .config.io import dump_config, load_config
+from .config.training import ExperimentConfig
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -50,9 +52,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     """Parse args, load YAML config, execute its program or show the config itself"""
     args = parse_args(argv)
     config = load_config(args.config, args.config_cls)
+    setup_logging(silent=config.logging.silent)
 
+    print(dump_config(config), end="")
     if args.action == "config":
-        print(dump_config(config), end="")
         return
 
     match (args.command, args.mode):
@@ -61,9 +64,9 @@ def main(argv: Sequence[str] | None = None) -> None:
 
             run_training(config)
         case ("inference", "mapper"):
-            from .generation.mapper import run_inference_mapper
+            from .generation import run_offline_inference
 
-            run_inference_mapper(config)
+            run_offline_inference(config)
         case ("inference", "server"):
             from .generation.server import run_inference_server
 

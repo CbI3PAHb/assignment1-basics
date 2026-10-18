@@ -7,14 +7,12 @@ import torch
 
 from cs336_basics.checkpoint.checkpoint import load_checkpoint, load_model_weights
 from cs336_basics.dataloader.dataloader import get_batch
-from cs336_basics.logging_setup import setup_logging
 from cs336_basics.prepare_output_directory import _prepare_output_directory
 from cs336_basics.training.reproducibility import seed_everything
 from cs336_basics.transformers.build import build_model
 
-from ..config.experiment import ExperimentConfig
 from ..config.io import dump_experiment
-from ..config.trainer import TrainerConfig
+from ..config.training import ExperimentConfig, TrainerConfig
 from .build import build_lr_schedule, build_optimizer, load_dataset
 from .trainer import Trainer
 
@@ -24,9 +22,7 @@ logger = logging.getLogger(__name__)
 def run_training(config: ExperimentConfig) -> None:
     """Prepare a new run directory, restore optional state, and execute training."""
 
-    setup_logging(silent=config.logging.silent)
     seed_everything(config.seed)
-    logger.info(f"Experiment config:\n{dump_experiment(config)}")
     logger.info(f"Starting training run in {config.output_dir}")
 
     if config.output_dir.exists():

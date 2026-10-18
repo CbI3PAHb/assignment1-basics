@@ -3,11 +3,9 @@ from pathlib import Path
 
 import attrs
 
-from ._converters import _to_path
-from ._validators import _NONNEGATIVE_INTEGER
-from .logging import LoggingConfig
+from ._validation import _NONNEGATIVE_INTEGER, _POSITIVE_INTEGER, _to_path
+from .execution import LoggingConfig, RuntimeConfig
 from .model import ModelConfig
-from .runtime import RuntimeConfig
 from .tokenizer import TokenizerConfig
 
 
@@ -22,26 +20,40 @@ class InferenceEngineConfig:
         validator=attrs.validators.instance_of(ModelConfig)
     )
     checkpoint: Path = attrs.field(converter=_to_path)
-    tokenizer: TokenizerConfig = attrs.field(
-        validator=attrs.validators.instance_of(TokenizerConfig)
-    )
     runtime: RuntimeConfig = attrs.field(
         factory=RuntimeConfig, validator=attrs.validators.instance_of(RuntimeConfig)
     )
 
 
 @attrs.frozen(kw_only=True)
+class SchedulerConfig(InferenceEngineConfig):
+    max_running_requests: int = attrs.field(
+        default=1, validator=[_POSITIVE_INTEGER, attrs.validators.le(2**32 - 1)]
+    )
+
+
+@attrs.frozen(kw_only=True)
+class LLMConfig(SchedulerConfig):
+    tokenizer: TokenizerConfig = attrs.field(
+        validator=attrs.validators.instance_of(TokenizerConfig)
+    )
+
+
+@attrs.frozen(kw_only=True)
 class SamplingParams:
-    """Sampling settings"""
+    """Per-request sampling settings and stopping conditions."""
 
     max_new_tokens: int = 64
-    temperature: float = 1.0
+    temperature: float = 0.0
     top_p: float = 1.0
+    eos_token_id: int | None = attrs.field(
+        default=None, validator=attrs.validators.optional(_NONNEGATIVE_INTEGER)
+    )
 
 
 @attrs.frozen(kw_only=True)
 class InferenceMapperConfig:
-    engine: InferenceEngineConfig
+    llm: LLMConfig
     generation: SamplingParams = attrs.field(factory=SamplingParams)
     prompt: str | None = None
     input_path: Path | None = attrs.field(

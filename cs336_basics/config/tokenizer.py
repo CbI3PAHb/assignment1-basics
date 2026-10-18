@@ -2,7 +2,7 @@ from pathlib import Path
 
 import attrs
 
-from ._converters import _to_path
+from ._validation import _to_path
 
 
 @attrs.frozen(kw_only=True)

@@ -1,6 +1,7 @@
-"""Reusable attrs validators for numeric configuration values."""
+"""Shared attrs validators and converters for configuration fields."""
 
 import math
+from pathlib import Path
 
 import attrs
 
@@ -31,13 +32,8 @@ _NONNEGATIVE_INTEGER = attrs.validators.and_(_INTEGER, attrs.validators.ge(0))
 _POSITIVE_NUMBER = attrs.validators.and_(_FINITE_NUMBER, attrs.validators.gt(0))
 _NONNEGATIVE_NUMBER = attrs.validators.and_(_FINITE_NUMBER, attrs.validators.ge(0))
 
-_BETAS = attrs.validators.and_(
-    attrs.validators.instance_of(tuple),
-    attrs.validators.min_len(2),
-    attrs.validators.max_len(2),
-    attrs.validators.deep_iterable(
-        member_validator=attrs.validators.and_(
-            _NONNEGATIVE_NUMBER, attrs.validators.lt(1)
-        ),
-    ),
-)
+
+def _to_path(value: str | Path) -> Path:
+    if not isinstance(value, (str, Path)) or value == "":
+        raise ConfigError(f"path must be a Path or a nonempty string, got {value!r}")
+    return Path(value)

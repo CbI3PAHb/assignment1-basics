@@ -19,7 +19,7 @@ from cs336_basics.config import (
     RuntimeConfig,
     LRSchedulerConfig,
 )
-from cs336_basics.config import experiment as experiment_module
+from cs336_basics.config import training as training_module
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def test_output_dir_default_is_generated_for_each_config(experiment, tmp_path, m
     ]
     clock = Mock()
     clock.now.side_effect = moments
-    monkeypatch.setattr(experiment_module, "datetime", clock)
+    monkeypatch.setattr(training_module, "datetime", clock)
     arguments = asdict(experiment, recurse=False)
     del arguments["output_dir"]
 
