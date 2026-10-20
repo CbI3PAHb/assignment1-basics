@@ -1,5 +1,3 @@
-"""Command-line entrypoint for training, mapper inference and serving"""
-
 import argparse
 from collections.abc import Sequence
 from pathlib import Path
@@ -42,6 +40,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         )
 
     args = parser.parse_args(argv)
+    if args.command == "inference" and args.action == "run":
+        parser.error(
+            "legacy inference execution was removed; "
+            "use python -m cs336_basics.generation.demo"
+        )
     if len(args.config) != 1:
         parser.error("--config must be specified exactly once")
     args.config = args.config[0]
@@ -55,6 +58,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     setup_logging(silent=config.logging.silent)
 
     print(dump_config(config), end="")
+
     if args.action == "config":
         return
 
@@ -63,14 +67,6 @@ def main(argv: Sequence[str] | None = None) -> None:
             from .training.run import run_training
 
             run_training(config)
-        case ("inference", "mapper"):
-            from .generation import run_offline_inference
-
-            run_offline_inference(config)
-        case ("inference", "server"):
-            from .generation.server import run_inference_server
-
-            run_inference_server(config)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from yaml.constructor import ConstructorError
 
 from cs336_basics import cli
 from cs336_basics.config import ConfigError, ExperimentConfig
-from cs336_basics.config.io import load_experiment
+from cs336_basics.config.io import dump_config, load_experiment
 
 
 @pytest.mark.parametrize("action", ["run", "config"])
@@ -165,7 +165,9 @@ def test_main_run_dispatches_the_loaded_experiment(experiment_path, monkeypatch,
     assert isinstance(dispatched[0], ExperimentConfig)
     assert dispatched[0] is loaded[0]
     assert dispatched[0] == expected
-    assert capsys.readouterr().out == ""
+    captured = capsys.readouterr()
+    assert yaml.safe_load(captured.out) == yaml.safe_load(dump_config(expected))
+    assert captured.err == ""
 
 
 @pytest.mark.parametrize("action", ["config", "run"])

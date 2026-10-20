@@ -31,6 +31,13 @@ _POSITIVE_INTEGER = attrs.validators.and_(_INTEGER, attrs.validators.gt(0))
 _NONNEGATIVE_INTEGER = attrs.validators.and_(_INTEGER, attrs.validators.ge(0))
 _POSITIVE_NUMBER = attrs.validators.and_(_FINITE_NUMBER, attrs.validators.gt(0))
 _NONNEGATIVE_NUMBER = attrs.validators.and_(_FINITE_NUMBER, attrs.validators.ge(0))
+_TOKEN_LIST = attrs.validators.and_(
+    attrs.validators.deep_iterable(
+        member_validator=_NONNEGATIVE_INTEGER,
+        iterable_validator=attrs.validators.instance_of(list),
+    ),
+    attrs.validators.min_len(1),
+)
 
 
 def _to_path(value: str | Path) -> Path:
