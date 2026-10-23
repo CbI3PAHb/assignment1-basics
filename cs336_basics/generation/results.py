@@ -1,6 +1,7 @@
 from enum import StrEnum, auto
 
 import attrs
+import torch
 
 
 class FinishReason(StrEnum):
@@ -15,3 +16,8 @@ class GenerationResult:
     token_ids: tuple[int, ...]
     finish_reason: FinishReason
     error: str | None = None
+
+
+@attrs.define(kw_only=True)
+class ModelOutput:
+    next_tokens_gpu: torch.Tensor

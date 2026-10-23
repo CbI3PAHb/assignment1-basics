@@ -1,8 +1,7 @@
 import attrs
 import torch
 import torch.nn.functional as F
-from beartype import beartype
-from jaxtyping import Bool, Float, Int, jaxtyped
+from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.config._validation import _POSITIVE_INTEGER
@@ -67,7 +66,7 @@ class Sampler:
             greedy_mask=greedy_mask,
         )
 
-    def sample_impl(
+    def sample(
         self,
         last_token_logits: Float[Tensor, "batch_size vocab_size"],
         sampling_params: BatchSamplingArgs,

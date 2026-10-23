@@ -54,7 +54,7 @@ def test_inference_run_is_rejected_before_config_loading(
     assert captured.out == ""
     assert (
         "legacy inference execution was removed; "
-        "use python -m cs336_basics.generation.demo"
+        "use python -m cs336_basics.generation.one_request_generate_demo"
     ) in captured.err
     assert list(tmp_path.iterdir()) == []
 

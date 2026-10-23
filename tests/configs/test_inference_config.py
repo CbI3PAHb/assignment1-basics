@@ -32,7 +32,7 @@ def mapper_raw(tmp_path: Path) -> dict:
         "prompt": "A short prompt",
         "generation": {
             "max_new_tokens": 3,
-            "temperature": 0.0,
+            "temperature": None,
             "top_p": 1.0,
             "eos_token_id": 0,
         },

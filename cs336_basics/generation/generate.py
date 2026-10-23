@@ -1,20 +1,14 @@
-from typing import Optional
-
-import torch
-import torch.nn as nn
-
+from .engine import Engine
 from .requests import Batch, Req
-from .results import FinishReason, GenerationResult
-from .sampling import BatchSamplingArgs, Sampler
+from .results import FinishReason, GenerationResult, ModelOutput
+from .sampling import BatchSamplingArgs
 
 
 def generate(
     *,
-    model: nn.Module,
+    engine: Engine,
     req: Req,
-    sampler: Sampler,
     context_capacity: int,
-    device: torch.device | str = "cpu",
 ) -> GenerationResult:
 
     if context_capacity <= 0 or req.sampling_params.max_new_tokens <= 0:
@@ -23,29 +17,23 @@ def generate(
         raise ValueError()
 
     return batched_generate(
-        model=model,
-        sampler=sampler,
+        engine=engine,
         requests=[req],
         context_capacity=context_capacity,
-        device=device,
     )[0]
 
 
 def batched_generate(
     *,
-    model: nn.Module,
+    engine: Engine,
     requests: list[Req],
-    sampler: Sampler,
     context_capacity: int,
-    device: torch.device | str = "cpu",
     pad_id: int = 0,
 ) -> list[GenerationResult]:
     if context_capacity <= 0:
         raise ValueError()
     if any(req.prompt_tokens_count >= context_capacity for req in requests):
         raise ValueError()
-
-    model.eval()
 
     while True:
         for req in requests:
@@ -74,42 +62,12 @@ def batched_generate(
             break
 
         curr_batch = Batch(reqs=requests_to_generate)
-        sampling_params: BatchSamplingArgs = sampler.prepare_batch_sampling_args(
+        sampling_params: BatchSamplingArgs = engine.sampler.prepare_batch_sampling_args(
             batch=curr_batch
         )
 
-        max_seq_len = max(req.total_tokens_count for req in requests_to_generate)
-        padded_batch = torch.stack(
-            [
-                torch.tensor(
-                    req.token_ids + [pad_id] * (max_seq_len - req.total_tokens_count)
-                )
-                for req in requests_to_generate
-            ]
-        )
-
-        padded_batch = padded_batch.to(device)
-        with torch.inference_mode():
-            logits = model.forward(padded_batch)  # [batch_size, seq_len, vocab_size]
-
-        batch_indices = torch.arange(
-            len(requests_to_generate),
-            device=device,
-        )
-
-        last_token_positions = torch.tensor(
-            [req.total_tokens_count - 1 for req in requests_to_generate],
-            dtype=torch.int32,
-            device=device,
-        )
-
-        last_token_logits = logits[
-            batch_indices, last_token_positions, :
-        ]  # [batch, vocab]
-        generated_tokens = sampler.sample_impl(
-            last_token_logits, sampling_params
-        )  # [batch]
-        generated_token_ids = generated_tokens.tolist()
+        model_output: ModelOutput = engine.forward_batch(curr_batch, sampling_params)
+        generated_token_ids = model_output.next_tokens_gpu.tolist()
 
         for req, token_id in zip(
             requests_to_generate,

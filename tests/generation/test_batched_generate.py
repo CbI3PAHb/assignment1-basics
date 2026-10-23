@@ -11,9 +11,9 @@ from cs336_basics.generation import (
     FinishReason,
     GenerationResult,
     Req,
-    Sampler,
     batched_generate,
 )
+from cs336_basics.generation.engine import Engine
 from cs336_basics.transformers.transformers import TransformerLM
 
 
@@ -65,13 +65,12 @@ class ScriptedBatchLM(nn.Module):
 
 
 def run_batch(
-    model: nn.Module,
+    engine: Engine,
     requests: list[Req],
     *,
     eos_id: int | None = None,
     max_new_tokens: int = 3,
     context_capacity: int = 16,
-    sampler: Sampler | None = None,
 ) -> list[GenerationResult]:
     for request in requests:
         request.sampling_params = attrs.evolve(
@@ -80,13 +79,9 @@ def run_batch(
             eos_token_id=eos_id,
         )
     results = batched_generate(
-        model=model,
-        sampler=(
-            sampler if sampler is not None else Sampler(vocab_size=32, device="cpu")
-        ),
+        engine=engine,
         requests=requests,
         context_capacity=context_capacity,
-        device="cpu",
         pad_id=0,
     )
     assert isinstance(results, list)
@@ -112,7 +107,9 @@ def assert_finished_results(
         assert tuple(request.token_ids) == token_ids
 
 
-def test_unequal_prefixes_and_duplicates_keep_per_row_selection_and_output_order():
+def test_unequal_prefixes_and_duplicates_keep_per_row_selection_and_output_order(
+    engine_factory,
+):
     requests = [
         Req(token_ids=[11, 24, 7]),
         Req(token_ids=[4]),
@@ -125,7 +122,7 @@ def test_unequal_prefixes_and_duplicates_keep_per_row_selection_and_output_order
         )
     )
 
-    results = run_batch(model, requests, max_new_tokens=2)
+    results = run_batch(engine_factory(model), requests, max_new_tokens=2)
 
     assert_finished_results(
         requests,
@@ -139,7 +136,9 @@ def test_unequal_prefixes_and_duplicates_keep_per_row_selection_and_output_order
     model.assert_complete()
 
 
-def test_generated_eos_stops_only_its_request_while_the_other_reaches_its_budget():
+def test_generated_eos_stops_only_its_request_while_the_other_reaches_its_budget(
+    engine_factory,
+):
     requests = [Req(token_ids=[11, 24, 7]), Req(token_ids=[4])]
     model = ScriptedBatchLM(
         (
@@ -149,7 +148,7 @@ def test_generated_eos_stops_only_its_request_while_the_other_reaches_its_budget
         )
     )
 
-    results = run_batch(model, requests, eos_id=2)
+    results = run_batch(engine_factory(model), requests, eos_id=2)
 
     assert_finished_results(
         requests,
@@ -162,7 +161,9 @@ def test_generated_eos_stops_only_its_request_while_the_other_reaches_its_budget
     model.assert_complete()
 
 
-def test_prompt_ending_in_zero_eos_stays_unchanged_and_new_eos_wins_over_limits():
+def test_prompt_ending_in_zero_eos_stays_unchanged_and_new_eos_wins_over_limits(
+    engine_factory,
+):
     requests = [Req(token_ids=[11, 0]), Req(token_ids=[4])]
     model = ScriptedBatchLM(
         (
@@ -172,7 +173,7 @@ def test_prompt_ending_in_zero_eos_stays_unchanged_and_new_eos_wins_over_limits(
     )
 
     results = run_batch(
-        model, requests, eos_id=0, max_new_tokens=2, context_capacity=3
+        engine_factory(model), requests, eos_id=0, max_new_tokens=2, context_capacity=3
     )
 
     assert_finished_results(
@@ -186,7 +187,9 @@ def test_prompt_ending_in_zero_eos_stays_unchanged_and_new_eos_wins_over_limits(
     model.assert_complete()
 
 
-def test_capacity_and_new_token_budget_stop_different_requests_independently():
+def test_capacity_and_new_token_budget_stop_different_requests_independently(
+    engine_factory,
+):
     requests = [Req(token_ids=[11, 24, 7]), Req(token_ids=[4])]
     model = ScriptedBatchLM(
         (
@@ -196,7 +199,9 @@ def test_capacity_and_new_token_budget_stop_different_requests_independently():
         )
     )
 
-    results = run_batch(model, requests, max_new_tokens=3, context_capacity=5)
+    results = run_batch(
+        engine_factory(model), requests, max_new_tokens=3, context_capacity=5
+    )
 
     assert_finished_results(
         requests,
@@ -209,7 +214,9 @@ def test_capacity_and_new_token_budget_stop_different_requests_independently():
     model.assert_complete()
 
 
-def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplicates():
+def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplicates(
+    engine_factory,
+):
     """Compare a multi-request batch with separate batch-size-one calls."""
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(336)
@@ -223,16 +230,16 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
             rope_theta=10000.0,
         ).cpu()
 
-    sampler = Sampler(vocab_size=32, device="cpu")
+    engine = engine_factory(model)
     prompts = ([11, 24, 7], [4], [8, 6])
     reference = [
-        run_batch(model, [Req(token_ids=prompt.copy())], sampler=sampler)[0]
+        run_batch(engine, [Req(token_ids=prompt.copy())])[0]
         for prompt in prompts
     ]
 
     for order in ((0, 1, 2, 0), (2, 0, 1, 0)):
         requests = [Req(token_ids=prompts[index].copy()) for index in order]
-        results = run_batch(model, requests, sampler=sampler)
+        results = run_batch(engine, requests)
         assert_finished_results(
             requests,
             results,
@@ -244,16 +251,18 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
 
 
 @pytest.mark.parametrize("failure_type", [RuntimeError, KeyboardInterrupt, SystemExit])
-def test_shared_forward_failure_propagates_to_the_caller(failure_type):
+def test_shared_forward_failure_propagates_to_the_caller(failure_type, engine_factory):
     failure = failure_type("Injected shared forward failure")
 
     class FailingLM(nn.Module):
         def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
             raise failure
 
+    engine = engine_factory(FailingLM())
+
     with pytest.raises(failure_type, match="Injected shared forward failure") as caught:
         run_batch(
-            FailingLM(),
+            engine,
             [Req(token_ids=[11, 24, 7]), Req(token_ids=[4])],
         )
 

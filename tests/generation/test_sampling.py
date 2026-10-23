@@ -68,7 +68,7 @@ def test_all_greedy_preparation_uses_argmax_without_a_random_draw(
     logits = torch.tensor(
         [[1.0, 4.0, 4.0, 0.0, -1.0], [5.0, 0.0, 4.0, 1.0, -2.0]]
     )
-    assert_token_vector(sampler.sample_impl(logits, args), [1, 0])
+    assert_token_vector(sampler.sample(logits, args), [1, 0])
 
 
 def test_stochastic_preparation_preserves_per_request_settings_as_columns() -> None:
@@ -128,7 +128,7 @@ def test_each_temperature_changes_its_own_categorical_distribution(
     logits = torch.tensor([[math.log(4.0), 0.0, -math.inf]]).repeat(2, 1)
     observed = script_draw(monkeypatch, [0, 1])
 
-    assert_token_vector(sampler.sample_impl(logits, args), [0, 1])
+    assert_token_vector(sampler.sample(logits, args), [0, 1])
     assert len(observed) == 1
     # Weights 4:1 become 16:1 at T=0.5 and 2:1 at T=2.
     expected = torch.tensor([[16 / 17, 1 / 17, 0.0], [2 / 3, 1 / 3, 0.0]])
@@ -148,7 +148,7 @@ def test_different_top_k_values_keep_the_correct_vocabulary_entries(
     ).repeat(2, 1)
     observed = script_draw(monkeypatch, [1, 3])
 
-    assert_token_vector(sampler.sample_impl(logits, args), [1, 3])
+    assert_token_vector(sampler.sample(logits, args), [1, 3])
     assert len(observed) == 1
     expected = torch.tensor(
         [[0.0, 1.0, 0.0, 0.0, 0.0], [0.0, 4 / 9, 2 / 9, 3 / 9, 0.0]]
@@ -165,7 +165,7 @@ def test_single_stochastic_request_retains_its_batch_dimension() -> None:
     # Only token 1 survives, so this has no statistical failure probability.
     with torch.random.fork_rng(devices=[]):
         assert_token_vector(
-            sampler.sample_impl(torch.tensor([[0.0, 5.0, 1.0]]), args), [1]
+            sampler.sample(torch.tensor([[0.0, 5.0, 1.0]]), args), [1]
         )
 
 
@@ -215,7 +215,7 @@ def assert_exact_mixed_selection(
 
         monkeypatch.setattr(torch, "multinomial", draw)
         args = sampler.prepare_batch_sampling_args(make_batch(*params))
-        tokens = sampler.sample_impl(logits.clone(), args)
+        tokens = sampler.sample(logits.clone(), args)
         assert tokens.shape == (len(params),)
         assert tokens.dtype == torch.int64
         assert tokens.device.type == "cpu"
@@ -309,7 +309,7 @@ def test_each_top_p_keeps_its_own_nucleus_in_vocabulary_order(
     ).repeat(3, 1)
     observed = script_draw(monkeypatch, [1, 3, 0])
 
-    assert_token_vector(sampler.sample_impl(logits, args), [1, 3, 0])
+    assert_token_vector(sampler.sample(logits, args), [1, 3, 0])
     assert len(observed) == 1
     expected = torch.tensor(
         [
@@ -335,7 +335,7 @@ def test_combined_top_k_then_top_p_uses_renormalized_retained_mass(
     logits = torch.tensor(
         [[0.0, math.log(4.0), math.log(2.0), math.log(3.0)]]
     )
-    assert_token_vector(sampler.sample_impl(logits, args), [3])
+    assert_token_vector(sampler.sample(logits, args), [3])
     assert len(observed) == 1
     expected = torch.tensor([[0.0, 4 / 7, 0.0, 3 / 7]])
     torch.testing.assert_close(observed[0], expected, rtol=1e-6, atol=1e-7)
@@ -354,7 +354,7 @@ def test_each_temperature_changes_its_own_top_p_nucleus(
     logits = torch.tensor([[0.0, math.log(4.0), math.log(2.0)]]).repeat(2, 1)
     observed = script_draw(monkeypatch, [1, 2])
 
-    assert_token_vector(sampler.sample_impl(logits, args), [1, 2])
+    assert_token_vector(sampler.sample(logits, args), [1, 2])
     assert len(observed) == 1
     # At T=0.5, token 1 alone exceeds p. At T=2, tokens 1 and 2 are needed.
     denominator = 2.0 + math.sqrt(2.0)

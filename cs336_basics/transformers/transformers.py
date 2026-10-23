@@ -318,7 +318,7 @@ class TransformerLM(nn.Module):
 
     def forward(
         self,
-        in_indices: Int[Tensor, " batch_size sequence_length"],
+        in_indices: Int[Tensor, "batch_size sequence_length"],
     ):
         hidden_state = self.token_embeddings(in_indices)
         for layer in self.layers:

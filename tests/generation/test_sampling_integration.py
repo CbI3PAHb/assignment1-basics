@@ -13,7 +13,6 @@ from cs336_basics.generation import (
     FinishReason,
     GenerationResult,
     Req,
-    Sampler,
     batched_generate,
 )
 
@@ -140,7 +139,7 @@ def assert_outcomes(
 
 
 def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, engine_factory,
 ) -> None:
     requests = [
         Req(token_ids=[11, 24, 7]),
@@ -161,11 +160,9 @@ def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
             request.sampling_params, max_new_tokens=1, eos_token_id=None
         )
     results = batched_generate(
-        model=model,
-        sampler=Sampler(vocab_size=32, device="cpu"),
+        engine=engine_factory(model),
         requests=requests,
         context_capacity=16,
-        device="cpu",
         pad_id=0,
     )
 
@@ -182,7 +179,7 @@ def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
 
 
 def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, engine_factory,
 ) -> None:
     requests = [
         Req(
@@ -209,11 +206,9 @@ def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
             request.sampling_params, max_new_tokens=1, eos_token_id=None
         )
     results = batched_generate(
-        model=model,
-        sampler=Sampler(vocab_size=32, device="cpu"),
+        engine=engine_factory(model),
         requests=requests,
         context_capacity=16,
-        device="cpu",
         pad_id=0,
     )
 
@@ -231,7 +226,7 @@ def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
 
 
 def test_sampling_settings_follow_survivors_after_two_eos_removals(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, engine_factory,
 ) -> None:
     requests = [
         Req(token_ids=[11, 24, 7]),
@@ -268,11 +263,9 @@ def test_sampling_settings_follow_survivors_after_two_eos_removals(
             request.sampling_params, max_new_tokens=budget, eos_token_id=2
         )
     results = batched_generate(
-        model=model,
-        sampler=Sampler(vocab_size=32, device="cpu"),
+        engine=engine_factory(model),
         requests=requests,
         context_capacity=16,
-        device="cpu",
         pad_id=0,
     )
 
@@ -293,7 +286,7 @@ def test_sampling_settings_follow_survivors_after_two_eos_removals(
 
 
 def test_disabled_top_k_preserves_the_whole_model_vocabulary(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, engine_factory,
 ) -> None:
     vocab_size = 32768
 
@@ -354,11 +347,9 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
     ]
 
     results = batched_generate(
-        model=model,
-        sampler=Sampler(vocab_size=vocab_size, device="cpu"),
+        engine=engine_factory(model, vocab_size=vocab_size),
         requests=requests,
         context_capacity=16,
-        device="cpu",
         pad_id=0,
     )
 
