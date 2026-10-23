@@ -3,7 +3,12 @@ from pathlib import Path
 
 import attrs
 
-from ._validation import _NONNEGATIVE_INTEGER, _POSITIVE_INTEGER, _POSITIVE_NUMBER, _to_path
+from ._validation import (
+    _NONNEGATIVE_INTEGER,
+    _POSITIVE_INTEGER,
+    _POSITIVE_NUMBER,
+    _to_path,
+)
 from .execution import LoggingConfig, RuntimeConfig
 from .model import ModelConfig
 from .tokenizer import TokenizerConfig
@@ -52,7 +57,7 @@ class SamplingParams:
         validator=[
             attrs.validators.optional(_POSITIVE_NUMBER),
             attrs.validators.le(1.0),
-        ]
+        ],
     )
     top_k: int | None = attrs.field(
         default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER)

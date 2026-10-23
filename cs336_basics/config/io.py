@@ -18,6 +18,7 @@ ConfigT = TypeVar(
     "ConfigT", ExperimentConfig, InferenceServerConfig, InferenceMapperConfig
 )
 
+
 def _structure_integer(value: object, _type: type[int]) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"expected an integer, got {value!r} ({type(value).__name__})")

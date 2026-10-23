@@ -46,7 +46,9 @@ def run_training(config: ExperimentConfig) -> None:
 
     optimizer = build_optimizer(config.optimizer, model.parameters())
     lr_schedule = build_lr_schedule(
-        config.lr_scheduler, peak_lr=config.optimizer.lr, max_steps=config.loop.max_steps
+        config.lr_scheduler,
+        peak_lr=config.optimizer.lr,
+        max_steps=config.loop.max_steps,
     )
 
     completed_steps = 0
