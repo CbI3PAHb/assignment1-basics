@@ -3,11 +3,17 @@ from pathlib import Path
 
 import torch
 
-from cs336_basics.checkpoint.checkpoint import load_model_weights
-from cs336_basics.config import ExperimentConfig, TokenizerConfig, load_config
-from cs336_basics.generation import GenerationResult, Sampler, generate
+from cs336_basics.config import (
+    EngineConfig,
+    ExperimentConfig,
+    RuntimeConfig,
+    SamplingParams,
+    TokenizerConfig,
+)
+from cs336_basics.config.io import load_config
+from cs336_basics.generation import GenerationResult, Req, batched_generate
+from cs336_basics.generation.engine import Engine
 from cs336_basics.tokenization.build import build_tokenizer
-from cs336_basics.transformers.build import build_model
 
 
 def main() -> None:
@@ -28,28 +34,32 @@ def main() -> None:
 
     print(f"Loading model...")
     experiment_config = load_config(checkpoint_config_path, ExperimentConfig)
-    model = build_model(experiment_config.model)
-    load_model_weights(src=checkpoint_path, model=model)
-    model = model.to(device)
-    model.eval()
-
-    sampler = Sampler(device=device, vocab_size=experiment_config.model.vocab_size)
+    engine = Engine(
+        EngineConfig(
+            model=experiment_config.model,
+            checkpoint=checkpoint_path,
+            runtime=RuntimeConfig(device=device),
+        )
+    )
 
     token_ids = tokenizer.encode(prompt)
+    request = Req(
+        token_ids=token_ids.copy(),
+        sampling_params=SamplingParams(
+            max_new_tokens=max_new_tokens,
+            eos_token_id=eos_id,
+        ),
+    )
 
     print("generation process starts")
     start_time = time.time()
 
     with torch.inference_mode():
-        generation_result: GenerationResult = generate(
-            model=model,
-            sampler=sampler,
-            token_ids=token_ids,
-            eos_id=eos_id,
-            max_new_tokens=max_new_tokens,
+        generation_result: GenerationResult = batched_generate(
+            engine=engine,
+            requests=[request],
             context_capacity=context_capacity,
-            device=device,
-        )
+        )[0]
 
     end_time = time.time()
     generated_tokens = generation_result.token_ids[len(token_ids) :]

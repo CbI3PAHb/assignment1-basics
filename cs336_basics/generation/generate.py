@@ -4,25 +4,6 @@ from .results import FinishReason, GenerationResult, ModelOutput
 from .sampling import BatchSamplingArgs
 
 
-def generate(
-    *,
-    engine: Engine,
-    req: Req,
-    context_capacity: int,
-) -> GenerationResult:
-
-    if context_capacity <= 0 or req.sampling_params.max_new_tokens <= 0:
-        raise ValueError()
-    if len(req.token_ids) >= context_capacity:
-        raise ValueError()
-
-    return batched_generate(
-        engine=engine,
-        requests=[req],
-        context_capacity=context_capacity,
-    )[0]
-
-
 def batched_generate(
     *,
     engine: Engine,
