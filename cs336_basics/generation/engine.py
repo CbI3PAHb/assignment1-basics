@@ -1,12 +1,10 @@
 import time
 from pathlib import Path
-from typing import Optional
 
 import torch
 
 from cs336_basics.checkpoint.checkpoint import load_model_weights
-from cs336_basics.config import EngineConfig
-from cs336_basics.config.training import ModelConfig
+from cs336_basics.config import EngineConfig, ModelConfig
 from cs336_basics.transformers.build import build_model
 
 from ..transformers.transformers import TransformerLM

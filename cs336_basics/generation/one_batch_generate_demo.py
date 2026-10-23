@@ -4,10 +4,12 @@ from pathlib import Path
 import torch
 
 from cs336_basics.checkpoint.checkpoint import load_model_weights
-from cs336_basics.config.inference import SamplingParams
-from cs336_basics.config.io import load_config
-from cs336_basics.config.tokenizer import TokenizerConfig
-from cs336_basics.config.training import ExperimentConfig
+from cs336_basics.config import (
+    ExperimentConfig,
+    SamplingParams,
+    TokenizerConfig,
+    load_config,
+)
 from cs336_basics.generation import GenerationResult, Req, Sampler, batched_generate
 from cs336_basics.tokenization.build import build_tokenizer
 from cs336_basics.transformers.build import build_model

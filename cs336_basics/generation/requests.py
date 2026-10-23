@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import attrs
 
+from cs336_basics.config import SamplingParams
 from cs336_basics.config._validation import _TOKEN_LIST
-from cs336_basics.config.inference import SamplingParams
 
 from .results import FinishReason
 
