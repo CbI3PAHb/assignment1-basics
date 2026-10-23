@@ -17,6 +17,8 @@ class ReqStatus(StrEnum):
 
 @attrs.define(kw_only=True)
 class Req:
+    """Persistent request state: identity, tokens, sampling policy and progress"""
+
     token_ids: list[int] = attrs.field(validator=_TOKEN_LIST)
     _id: str = attrs.field(
         factory=lambda: uuid4().hex,
@@ -61,4 +63,6 @@ class Req:
 
 @attrs.define(kw_only=True)
 class Batch:
+    """Requests for one execution step; per-step input metadata belongs here"""
+
     reqs: list[Req]

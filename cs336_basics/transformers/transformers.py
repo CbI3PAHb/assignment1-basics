@@ -196,15 +196,15 @@ def softmax(x: torch.Tensor, dim: int = -1):
 
 
 def scaled_dot_product_attention(
-    q: Float[Tensor, "... seq_len qk_head_dim"],
-    k: Float[Tensor, "... seq_len qk_head_dim"],
-    v: Float[Tensor, "... seq_len v_head_dim"],
-    mask: Bool[Tensor, "seq_len seq_len"] | None = None,
+    q: Float[Tensor, "... q_seq_len qk_head_dim"],
+    k: Float[Tensor, "... kv_seq_len qk_head_dim"],
+    v: Float[Tensor, "... kv_seq_len v_head_dim"],
+    mask: Bool[Tensor, "q_seq_len kv_seq_len"] | None = None,
 ):
     scores = einops.einsum(
         q,
         k,
-        "... q_seq_len qk_head_dim, ... k_seq_len qk_head_dim -> ... q_seq_len k_seq_len",
+        "... q_seq_len qk_head_dim, ... kv_seq_len qk_head_dim -> ... q_seq_len kv_seq_len",
     )
     scores = scores / q.shape[-1] ** 0.5
 
@@ -216,8 +216,37 @@ def scaled_dot_product_attention(
     return einops.einsum(
         probs,
         v,
-        "... q_seq_len k_seq_len, ... k_seq_len v_head_dim -> ... q_seq_len v_head_dim",
+        "... q_seq_len kv_seq_len, ... kv_seq_len v_head_dim -> ... q_seq_len v_head_dim",
     )
+
+
+class LayerKVCache:
+    def __init__(self) -> None:
+        self._k_cache: torch.Tensor | None = None
+        self._v_cache: torch.Tensor | None = None
+
+    def k_cache(self) -> torch.Tensor:
+        if self._k_cache is None:
+            raise RuntimeError()
+        return self._k_cache
+
+    def v_cache(self) -> torch.Tensor:
+        if self._v_cache is None:
+            raise RuntimeError()
+        return self._v_cache
+
+    def update_kv(self, k: torch.Tensor, v: torch.Tensor) -> None:
+        if self._k_cache is None:
+            self._k_cache = k
+        else:
+            new_cache = torch.cat([self._k_cache, k], dim=-2)  # sequence_dim=-2
+            self._k_cache = new_cache
+
+        if self._v_cache is None:
+            self._v_cache = v
+        else:
+            new_cache = torch.cat([self._v_cache, v], dim=-2)  # sequence_dim=-2
+            self._v_cache = new_cache
 
 
 class MultiHeadSelfAttention(nn.Module):
@@ -251,7 +280,9 @@ class MultiHeadSelfAttention(nn.Module):
     def forward(
         self,
         x: Float[Tensor, "... seq_len d_model"],
-        token_positions: Int[Tensor, " ... sequence_length"] | None = None,
+        *,
+        token_positions: Int[Tensor, " ... seq_len"] | None = None,
+        kv_cache: LayerKVCache | None = None,
     ):
         q, k, v = einops.rearrange(
             self.w_qkv(x),
@@ -263,9 +294,16 @@ class MultiHeadSelfAttention(nn.Module):
             q = self.rope(q, token_positions)
             k = self.rope(k, token_positions)
 
-        seq_len = x.shape[-2]
+        if kv_cache is not None:
+            kv_cache.update_kv(k=k, v=v)
+            k = kv_cache.k_cache()
+            v = kv_cache.v_cache()
+
+        q_seq_len = int(q.shape[-2])
+        kv_seq_len = k.shape[-2]
         mask = torch.tril(
-            torch.ones(size=(seq_len, seq_len), dtype=torch.bool, device=x.device)
+            torch.ones(size=(q_seq_len, kv_seq_len), dtype=torch.bool, device=x.device),
+            diagonal=kv_seq_len - q_seq_len,
         )
         a = scaled_dot_product_attention(q, k, v, mask)
         a = einops.rearrange(
@@ -285,9 +323,15 @@ class TransformerBlock(nn.Module):
         self.ffn = FFN(d_model, d_ff)
 
     def forward(
-        self, x: Float[Tensor, "... seq_len d_model"]
+        self,
+        x: Float[Tensor, "... seq_len d_model"],
+        *,
+        token_positions: Int[Tensor, "batch_size sequence_length"] | None = None,
+        kv_cache: LayerKVCache | None = None,
     ) -> Float[Tensor, "... seq_len d_model"]:
-        x = x + self.attn(self.ln1(x))
+        x = x + self.attn(
+            self.ln1(x), token_positions=token_positions, kv_cache=kv_cache
+        )
         x = x + self.ffn(self.ln2(x))
         return x
 
@@ -319,10 +363,21 @@ class TransformerLM(nn.Module):
     def forward(
         self,
         in_indices: Int[Tensor, "batch_size sequence_length"],
+        *,
+        token_positions: Int[Tensor, "batch_size sequence_length"] | None = None,
+        kv_caches: list[LayerKVCache] | None = None,
     ):
+        if kv_caches is not None and len(kv_caches) != len(self.layers):
+            raise ValueError(
+                f"Expected {len(self.layers)} layer caches, got {len(kv_caches)}"
+            )
+
         hidden_state = self.token_embeddings(in_indices)
-        for layer in self.layers:
-            hidden_state = layer(hidden_state)
+        for i, layer in enumerate(self.layers):
+            kv_cache = kv_caches[i] if kv_caches is not None else None
+            hidden_state = layer(
+                hidden_state, token_positions=token_positions, kv_cache=kv_cache
+            )
         hidden_state = self.ln_final(hidden_state)
         logits = self.lm_head(hidden_state)
         return logits
