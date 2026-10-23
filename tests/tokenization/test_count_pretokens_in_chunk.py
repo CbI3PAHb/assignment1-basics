@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from cs336_basics.tokenization.bpe.pretokenization import (
-    ChunkTask, _count_pretokens_in_chunk)
+    ChunkTask,
+    _count_pretokens_in_chunk,
+)
 
 SPECIAL_TOKENS = ("<|endoftext|>",)
 

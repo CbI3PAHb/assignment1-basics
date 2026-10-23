@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cs336_basics.tokenization.bpe.pretokenization import \
-    find_safe_chunk_boundaries
+from cs336_basics.tokenization.bpe.pretokenization import find_safe_chunk_boundaries
 
 SPLIT_TOKEN = b"<S>"
 

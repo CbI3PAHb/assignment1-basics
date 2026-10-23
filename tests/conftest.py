@@ -16,6 +16,48 @@ class DEFAULT:
 _A = TypeVar("_A", np.ndarray, Tensor)
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "cuda: numerical execution on a CUDA device")
+
+
+@pytest.fixture(
+    params=[
+        pytest.param("cpu", id="device_cpu"),
+        pytest.param("cuda:0", id="device_cuda", marks=pytest.mark.cuda),
+    ]
+)
+def execution_device(request):
+    """Opt numerical tests into CPU/CUDA; a CUDA skip is not GPU verification."""
+    device = torch.device(request.param)
+    if device.type == "cuda":
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA is unavailable; this GPU case was not executed")
+        with torch.cuda.device(device):
+            previous_tf32 = torch.backends.cuda.matmul.allow_tf32
+            torch.backends.cuda.matmul.allow_tf32 = False
+            try:
+                yield device
+            finally:
+                torch.backends.cuda.matmul.allow_tf32 = previous_tf32
+    else:
+        yield device
+
+
+def _snapshot_test_name(request):
+    """Share original snapshots across devices, keeping other parameter IDs."""
+    name = request.node.name
+    callspec = getattr(request.node, "callspec", None)
+    if callspec is None or "execution_device" not in callspec.params:
+        return name
+    base, _, parameter_ids = name.partition("[")
+    remaining = [
+        part
+        for part in parameter_ids.removesuffix("]").split("-")
+        if part not in {"device_cpu", "device_cuda"}
+    ]
+    return f"{base}[{'-'.join(remaining)}]" if remaining else base
+
+
 def _canonicalize_array(arr: _A) -> np.ndarray:
     if isinstance(arr, Tensor):
         arr = arr.detach().cpu().numpy()
@@ -177,7 +219,8 @@ def snapshot(request):
 
     # Create the snapshot handler with default settings
     snapshot_handler = Snapshot(
-        default_force_update=force_update, default_test_name=request.node.name
+        default_force_update=force_update,
+        default_test_name=_snapshot_test_name(request),
     )
 
     return snapshot_handler
@@ -202,7 +245,7 @@ def numpy_snapshot(request):
     snapshot = NumpySnapshot(
         default_force_update=force_update,
         always_match_exact=match_exact,
-        default_test_name=request.node.name,
+        default_test_name=_snapshot_test_name(request),
     )
 
     return snapshot
@@ -270,37 +313,37 @@ def d_ff():
 
 @pytest.fixture
 def q(batch_size, n_queries, d_model):
-    torch.manual_seed(1)
+    torch.random.default_generator.manual_seed(1)
     return torch.randn(batch_size, n_queries, d_model)
 
 
 @pytest.fixture
 def k(batch_size, n_keys, d_model):
-    torch.manual_seed(2)
+    torch.random.default_generator.manual_seed(2)
     return torch.randn(batch_size, n_keys, d_model)
 
 
 @pytest.fixture
 def v(batch_size, n_keys, d_model):
-    torch.manual_seed(3)
+    torch.random.default_generator.manual_seed(3)
     return torch.randn(batch_size, n_keys, d_model)
 
 
 @pytest.fixture
 def in_embeddings(batch_size, n_queries, d_model):
-    torch.manual_seed(4)
+    torch.random.default_generator.manual_seed(4)
     return torch.randn(batch_size, n_queries, d_model)
 
 
 @pytest.fixture
 def mask(batch_size, n_queries, n_keys):
-    torch.manual_seed(5)
+    torch.random.default_generator.manual_seed(5)
     return torch.randn(batch_size, n_queries, n_keys) > 0.5
 
 
 @pytest.fixture
 def in_indices(batch_size, n_queries):
-    torch.manual_seed(6)
+    torch.random.default_generator.manual_seed(6)
     return torch.randint(0, 10_000, (batch_size, n_queries))
 
 

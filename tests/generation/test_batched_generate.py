@@ -16,7 +16,6 @@ from cs336_basics.generation import (
 from cs336_basics.generation.engine import Engine
 from cs336_basics.transformers.transformers import TransformerLM
 
-
 BatchStep = tuple[tuple[tuple[int, ...], int], ...]
 
 
@@ -25,6 +24,7 @@ class ScriptedBatchLM(nn.Module):
 
     def __init__(self, steps: tuple[BatchStep, ...]) -> None:
         super().__init__()
+        self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
         self.steps = steps
         self.seen_batches: list[tuple[tuple[int, ...], ...]] = []
 
@@ -35,14 +35,12 @@ class ScriptedBatchLM(nn.Module):
         width = max(len(prefix) for prefix, _ in step)
         assert token_ids.shape == (len(step), width)
         assert token_ids.dtype == torch.int64
-        assert token_ids.device.type == "cpu"
+        assert token_ids.device == self._device_anchor.device
         assert not self.training, "Generation must use evaluation behavior"
         assert not torch.is_grad_enabled(), "Generation must disable autograd"
 
         rows = tuple(tuple(row) for row in token_ids.tolist())
-        expected_rows = [
-            prefix + (0,) * (width - len(prefix)) for prefix, _ in step
-        ]
+        expected_rows = [prefix + (0,) * (width - len(prefix)) for prefix, _ in step]
         # Internal row order may vary; request/result association must not.
         assert Counter(rows) == Counter(expected_rows)
         action_by_row = {
@@ -51,7 +49,7 @@ class ScriptedBatchLM(nn.Module):
         }
         self.seen_batches.append(rows)
 
-        logits = torch.full((len(step), width, 32), -20.0)
+        logits = torch.full((len(step), width, 32), -20.0, device=token_ids.device)
         logits[:, :, 31] = 1000.0
         for row_index, row in enumerate(rows):
             prefix, selected = action_by_row[row]
@@ -219,7 +217,7 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
 ):
     """Compare a multi-request batch with separate batch-size-one calls."""
     with torch.random.fork_rng(devices=[]):
-        torch.manual_seed(336)
+        torch.random.default_generator.manual_seed(336)
         model = TransformerLM(
             vocab_size=32,
             context_length=16,
@@ -233,8 +231,7 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
     engine = engine_factory(model)
     prompts = ([11, 24, 7], [4], [8, 6])
     reference = [
-        run_batch(engine, [Req(token_ids=prompt.copy())])[0]
-        for prompt in prompts
+        run_batch(engine, [Req(token_ids=prompt.copy())])[0] for prompt in prompts
     ]
 
     for order in ((0, 1, 2, 0), (2, 0, 1, 0)):

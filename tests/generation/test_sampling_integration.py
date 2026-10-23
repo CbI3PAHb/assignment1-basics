@@ -16,7 +16,6 @@ from cs336_basics.generation import (
     batched_generate,
 )
 
-
 WeightedStep = tuple[tuple[tuple[int, ...], dict[int, float]], ...]
 
 
@@ -25,6 +24,7 @@ class WeightedBatchLM(nn.Module):
 
     def __init__(self, steps: tuple[WeightedStep, ...]) -> None:
         super().__init__()
+        self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
         self.steps = steps
         self.seen_batches: list[tuple[tuple[int, ...], ...]] = []
 
@@ -35,7 +35,7 @@ class WeightedBatchLM(nn.Module):
         width = max(len(prefix) for prefix, _ in step)
         assert token_ids.shape == (len(step), width)
         assert token_ids.dtype == torch.int64
-        assert token_ids.device.type == "cpu"
+        assert token_ids.device == self._device_anchor.device
         assert not self.training
         assert not torch.is_grad_enabled()
 
@@ -47,7 +47,7 @@ class WeightedBatchLM(nn.Module):
         assert Counter(rows) == Counter(by_padded_row.keys())
         self.seen_batches.append(rows)
 
-        logits = torch.full((len(step), width, 32), -math.inf)
+        logits = torch.full((len(step), width, 32), -math.inf, device=token_ids.device)
         # A wrong sequence position produces token 31, including at padding.
         logits[:, :, 31] = 1000.0
         for row_index, row in enumerate(rows):
@@ -78,7 +78,7 @@ def observe_low_probability_draws(
     ) -> torch.Tensor:
         assert num_samples == 1
         assert probs.ndim in (1, 2)
-        assert probs.device.type == "cpu"
+        assert probs.device == model._device_anchor.device
         rows = probs.reshape(-1, probs.shape[-1])
         assert torch.isfinite(rows).all()
         assert (rows >= 0).all()
@@ -112,7 +112,7 @@ def assert_saw_distribution(
         # Sampling may use a compact retained vocabulary rather than zero columns.
         actual = row[row > 0].sort().values
         if actual.shape == expected.shape and torch.allclose(
-            actual, expected, rtol=1e-6, atol=1e-7
+            actual, expected.to(actual), rtol=1e-6, atol=1e-7
         ):
             return
     pytest.fail(f"Missing the request's categorical distribution at forward {step}")
@@ -139,7 +139,8 @@ def assert_outcomes(
 
 
 def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
-    monkeypatch: pytest.MonkeyPatch, engine_factory,
+    monkeypatch: pytest.MonkeyPatch,
+    engine_factory,
 ) -> None:
     requests = [
         Req(token_ids=[11, 24, 7]),
@@ -179,7 +180,8 @@ def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
 
 
 def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
-    monkeypatch: pytest.MonkeyPatch, engine_factory,
+    monkeypatch: pytest.MonkeyPatch,
+    engine_factory,
 ) -> None:
     requests = [
         Req(
@@ -226,7 +228,8 @@ def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
 
 
 def test_sampling_settings_follow_survivors_after_two_eos_removals(
-    monkeypatch: pytest.MonkeyPatch, engine_factory,
+    monkeypatch: pytest.MonkeyPatch,
+    engine_factory,
 ) -> None:
     requests = [
         Req(token_ids=[11, 24, 7]),
@@ -250,9 +253,7 @@ def test_sampling_settings_follow_survivors_after_two_eos_removals(
                 ((4, 7), {9: 4.0, 2: 3.0}),
                 ((8, 6, 13), {10: 1.0, 12: 9.0, 14: 4.0}),
             ),
-            (
-                ((8, 6, 13, 14), {10: 1.0, 12: 9.0, 15: 4.0}),
-            ),
+            (((8, 6, 13, 14), {10: 1.0, 12: 9.0, 15: 4.0}),),
         )
     )
     observed = observe_low_probability_draws(monkeypatch, model)
@@ -286,13 +287,15 @@ def test_sampling_settings_follow_survivors_after_two_eos_removals(
 
 
 def test_disabled_top_k_preserves_the_whole_model_vocabulary(
-    monkeypatch: pytest.MonkeyPatch, engine_factory,
+    monkeypatch: pytest.MonkeyPatch,
+    engine_factory,
 ) -> None:
     vocab_size = 32768
 
     class UniformLM(nn.Module):
         def __init__(self) -> None:
             super().__init__()
+            self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
             self.calls = 0
 
         def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
@@ -300,10 +303,10 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
             assert self.calls == 1, "Forward called after completion"
             assert token_ids.shape == (1, 1)
             assert token_ids.dtype == torch.int64
-            assert token_ids.device.type == "cpu"
+            assert token_ids.device == self._device_anchor.device
             assert not self.training
             assert not torch.is_grad_enabled()
-            return torch.zeros((1, 1, vocab_size))
+            return torch.zeros((1, 1, vocab_size), device=token_ids.device)
 
     draws: list[torch.Tensor] = []
 
@@ -317,7 +320,7 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
     ) -> torch.Tensor:
         assert num_samples == 1
         assert probs.ndim in (1, 2)
-        assert probs.device.type == "cpu"
+        assert probs.device == model._device_anchor.device
         rows = probs.reshape(-1, probs.shape[-1])
         assert rows.shape == (1, vocab_size)
         assert torch.isfinite(rows).all()

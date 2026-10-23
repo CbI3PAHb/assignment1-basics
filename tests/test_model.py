@@ -3,13 +3,31 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 
-from .adapters import (run_embedding, run_linear, run_multihead_self_attention,
-                       run_multihead_self_attention_with_rope, run_rmsnorm,
-                       run_rope, run_scaled_dot_product_attention, run_silu,
-                       run_swiglu, run_transformer_block, run_transformer_lm)
+from .adapters import (
+    run_embedding,
+    run_linear,
+    run_multihead_self_attention,
+    run_multihead_self_attention_with_rope,
+    run_rmsnorm,
+    run_rope,
+    run_scaled_dot_product_attention,
+    run_silu,
+    run_swiglu,
+    run_transformer_block,
+    run_transformer_lm,
+)
 
 
-def test_linear(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff):
+def _state_dict_on_device(state_and_config, device):
+    state_dict, config = state_and_config
+    return {name: value.to(device) for name, value in state_dict.items()}, config
+
+
+def test_linear(
+    numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff, execution_device
+):
+    in_embeddings = in_embeddings.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     w1_weight = ts_state_dict[0]["layers.0.ffn.w1.weight"]
     output = run_linear(
         d_in=d_model,
@@ -17,10 +35,20 @@ def test_linear(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff):
         weights=w1_weight,
         in_features=in_embeddings,
     )
+    assert output.device == execution_device
     numpy_snapshot.assert_match(output)
 
 
-def test_embedding(numpy_snapshot, ts_state_dict, in_indices, vocab_size, d_model):
+def test_embedding(
+    numpy_snapshot,
+    ts_state_dict,
+    in_indices,
+    vocab_size,
+    d_model,
+    execution_device,
+):
+    in_indices = in_indices.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     embedding_weight = ts_state_dict[0]["token_embeddings.weight"]
     output = run_embedding(
         vocab_size=vocab_size,
@@ -28,10 +56,15 @@ def test_embedding(numpy_snapshot, ts_state_dict, in_indices, vocab_size, d_mode
         weights=embedding_weight,
         token_ids=in_indices,
     )
+    assert output.device == execution_device
     numpy_snapshot.assert_match(output)
 
 
-def test_swiglu(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff):
+def test_swiglu(
+    numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff, execution_device
+):
+    in_embeddings = in_embeddings.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     w1_weight, w2_weight, w3_weight = [
         ts_state_dict[0][f"layers.0.ffn.{k}.weight"] for k in ["w1", "w2", "w3"]
     ]
@@ -44,18 +77,30 @@ def test_swiglu(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff):
         w3_weight=w3_weight,
         in_features=in_embeddings,
     )
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-5)
 
 
-def test_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
+def test_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask, execution_device):
+    q = q.to(execution_device)
+    k = k.to(execution_device)
+    v = v.to(execution_device)
+    mask = mask.to(execution_device)
     actual_output = run_scaled_dot_product_attention(Q=q, K=k, V=v, mask=mask)
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(
         actual_output,
         atol=1e-6,
     )
 
 
-def test_4d_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
+def test_4d_scaled_dot_product_attention(
+    numpy_snapshot, q, k, v, mask, execution_device
+):
+    q = q.to(execution_device)
+    k = k.to(execution_device)
+    v = v.to(execution_device)
+    mask = mask.to(execution_device)
     # Shape: (batch_size, num_heads, seq_len, qk_head_dim)
     q, k, v = (
         rearrange(x, "(batch head) seq d -> batch head seq d", head=2)
@@ -64,6 +109,7 @@ def test_4d_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
     mask = rearrange(mask, "(batch head) query key -> batch head query key", head=2)
 
     actual_output = run_scaled_dot_product_attention(Q=q, K=k, V=v, mask=mask)
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(
         actual_output,
         atol=1e-6,
@@ -71,8 +117,15 @@ def test_4d_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
 
 
 def test_multihead_self_attention(
-    numpy_snapshot, in_embeddings, d_model, n_heads, ts_state_dict
+    numpy_snapshot,
+    in_embeddings,
+    d_model,
+    n_heads,
+    ts_state_dict,
+    execution_device,
 ):
+    in_embeddings = in_embeddings.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     d, _ = ts_state_dict
     q_proj_weight, k_proj_weight, v_proj_weight, o_proj_weight = [
         d[f"layers.0.attn.{k}_proj.weight"] for k in ["q", "k", "v", "output"]
@@ -86,6 +139,7 @@ def test_multihead_self_attention(
         o_proj_weight=o_proj_weight,
         in_features=in_embeddings,
     )
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
@@ -98,7 +152,11 @@ def test_multihead_self_attention_with_rope(
     n_keys,
     theta,
     pos_ids,
+    execution_device,
 ):
+    in_embeddings = in_embeddings.to(execution_device)
+    pos_ids = pos_ids.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     d, _ = ts_state_dict
     q_proj_weight, k_proj_weight, v_proj_weight, o_proj_weight = [
         d[f"layers.0.attn.{k}_proj.weight"] for k in ["q", "k", "v", "output"]
@@ -116,6 +174,7 @@ def test_multihead_self_attention_with_rope(
         in_features=in_embeddings,
         token_positions=pos_ids,
     )
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
@@ -130,7 +189,10 @@ def test_transformer_lm(
     theta,
     ts_state_dict,
     in_indices,
+    execution_device,
 ):
+    in_indices = in_indices.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     state_dict, _ = ts_state_dict
 
     actual_output = run_transformer_lm(
@@ -144,6 +206,7 @@ def test_transformer_lm(
         weights=state_dict,
         in_indices=in_indices,
     )
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-4, rtol=1e-2)
 
 
@@ -158,7 +221,10 @@ def test_transformer_lm_truncated_input(
     theta,
     ts_state_dict,
     in_indices,
+    execution_device,
 ):
+    in_indices = in_indices.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     in_indices_truncated = in_indices[..., : in_indices.shape[-1] // 2]
     truncated_actual_output = run_transformer_lm(
         vocab_size=vocab_size,
@@ -172,6 +238,7 @@ def test_transformer_lm_truncated_input(
         in_indices=in_indices_truncated,
     )
 
+    assert truncated_actual_output.device == execution_device
     numpy_snapshot.assert_match(
         truncated_actual_output,
         atol=1e-4,
@@ -179,8 +246,18 @@ def test_transformer_lm_truncated_input(
 
 
 def test_transformer_block(
-    numpy_snapshot, ts_state_dict, in_embeddings, d_model, n_heads, d_ff, n_keys, theta
+    numpy_snapshot,
+    ts_state_dict,
+    in_embeddings,
+    d_model,
+    n_heads,
+    d_ff,
+    n_keys,
+    theta,
+    execution_device,
 ):
+    in_embeddings = in_embeddings.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     block_weights = {
         k.replace("layers.0.", ""): v
         for k, v in ts_state_dict[0].items()
@@ -196,13 +273,16 @@ def test_transformer_block(
         weights=block_weights,
         in_features=in_embeddings,
     )
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(
         actual_output,
         atol=1e-6,
     )
 
 
-def test_rmsnorm(numpy_snapshot, ts_state_dict, in_embeddings):
+def test_rmsnorm(numpy_snapshot, ts_state_dict, in_embeddings, execution_device):
+    in_embeddings = in_embeddings.to(execution_device)
+    ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     state_dict, _ = ts_state_dict
     reference_weights = state_dict["layers.1.ln1.weight"]
     d_model = reference_weights.shape[0]
@@ -211,10 +291,21 @@ def test_rmsnorm(numpy_snapshot, ts_state_dict, in_embeddings):
         d_model=d_model, eps=1e-5, weights=reference_weights, in_features=in_embeddings
     )
 
+    assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
-def test_rope(numpy_snapshot, in_embeddings, d_model, theta, n_queries, pos_ids):
+def test_rope(
+    numpy_snapshot,
+    in_embeddings,
+    d_model,
+    theta,
+    n_queries,
+    pos_ids,
+    execution_device,
+):
+    in_embeddings = in_embeddings.to(execution_device)
+    pos_ids = pos_ids.to(execution_device)
     output = run_rope(
         d_model,
         theta=theta,
@@ -222,18 +313,23 @@ def test_rope(numpy_snapshot, in_embeddings, d_model, theta, n_queries, pos_ids)
         in_query_or_key=in_embeddings,
         token_positions=pos_ids,
     )
+    assert output.device == execution_device
     numpy_snapshot.assert_match(output, atol=1e-6)
 
 
-def test_silu_matches_pytorch():
+def test_silu_matches_pytorch(execution_device):
     x = torch.tensor(
         [
             [0.2352, 0.9259, 0.5189, 0.4725, 0.9730],
             [0.7581, 0.9692, 0.2129, 0.9345, 0.0149],
-        ]
+        ],
+        device=execution_device,
     )
     expected_output = F.silu(x)
     actual_output = run_silu(x)
+    assert actual_output.device == execution_device
     numpy.testing.assert_allclose(
-        actual_output.detach().numpy(), expected_output.detach().numpy(), atol=1e-6
+        actual_output.detach().cpu().numpy(),
+        expected_output.detach().cpu().numpy(),
+        atol=1e-6,
     )

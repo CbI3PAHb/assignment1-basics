@@ -17,9 +17,19 @@ from cs336_basics.tokenization.bpe import train_bpe
 from cs336_basics.tokenization.tokenizer import Tokenizer
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import (
-    FFN, EmbeddingModule, LinearModule, MultiHeadSelfAttention, RMSNormModule,
-    RoPE, TransformerBlock, TransformerLM, cross_entropy_loss,
-    scaled_dot_product_attention, silu, softmax)
+    FFN,
+    EmbeddingModule,
+    LinearModule,
+    MultiHeadSelfAttention,
+    RMSNormModule,
+    RoPE,
+    TransformerBlock,
+    TransformerLM,
+    cross_entropy_loss,
+    scaled_dot_product_attention,
+    silu,
+    softmax,
+)
 
 
 def run_linear(
@@ -41,7 +51,7 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    linear_layer = LinearModule(d_in, d_out)
+    linear_layer = LinearModule(d_in, d_out).to(in_features)
     linear_layer.load_state_dict({"weight": weights})
     return linear_layer(in_features)
 
@@ -64,7 +74,7 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-    embedding_layer = EmbeddingModule(vocab_size, d_model)
+    embedding_layer = EmbeddingModule(vocab_size, d_model).to(weights)
     embedding_layer.load_state_dict({"weight": weights})
     return embedding_layer(token_ids)
 
@@ -99,7 +109,7 @@ def run_swiglu(
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
 
-    ffn = FFN(d_model, d_ff)
+    ffn = FFN(d_model, d_ff).to(in_features)
     ffn.load_state_dict(
         {
             "w1.weight": w1_weight,
@@ -162,7 +172,7 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mhsa = MultiHeadSelfAttention(d_model, num_heads)
+    mhsa = MultiHeadSelfAttention(d_model, num_heads).to(in_features)
     mhsa.load_state_dict(
         {
             "w_qkv.weight": torch.cat(
@@ -211,7 +221,9 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
+    mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta).to(
+        in_features
+    )
     mhsa.load_state_dict(
         {
             "w_qkv.weight": torch.cat(
@@ -220,7 +232,7 @@ def run_multihead_self_attention_with_rope(
             "output_proj.weight": o_proj_weight,
         }
     )
-    return mhsa(in_features, token_positions)
+    return mhsa(in_features, token_positions=token_positions)
 
 
 def run_rope(
@@ -242,7 +254,7 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length qk_head_dim"]: Tensor with RoPEd input.
     """
-    rope = RoPE(theta, qk_head_dim, max_seq_len)
+    rope = RoPE(theta, qk_head_dim, max_seq_len).to(in_query_or_key)
     return rope(in_query_or_key, token_positions)
 
 
@@ -328,7 +340,9 @@ def run_transformer_block(
         )
         return new_state_dict
 
-    transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
+    transformer_block = TransformerBlock(
+        d_model, num_heads, d_ff, max_seq_len, theta
+    ).to(in_features)
     transformer_block.load_state_dict(transform_state_dict(weights))
     return transformer_block(in_features)
 
@@ -420,7 +434,7 @@ def run_transformer_lm(
         num_heads,
         d_ff,
         rope_theta,
-    )
+    ).to(in_indices.device)
 
     def transform_state_dict(source_weights: dict[str, Tensor]) -> dict[str, Tensor]:
         """
@@ -478,7 +492,7 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    rmsnorm = RMSNormModule(d_model, eps)
+    rmsnorm = RMSNormModule(d_model, eps).to(in_features)
     rmsnorm.load_state_dict({"weight": weights})
     return rmsnorm(in_features)
 

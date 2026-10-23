@@ -45,16 +45,13 @@ def test_inference_run_is_rejected_before_config_loading(
     monkeypatch.setattr(cli, "load_config", unexpected_load)
 
     with pytest.raises(SystemExit) as caught:
-        cli.main(
-            ["inference", mode, "run", "--config", str(tmp_path / "missing.yaml")]
-        )
+        cli.main(["inference", mode, "run", "--config", str(tmp_path / "missing.yaml")])
 
     captured = capsys.readouterr()
     assert caught.value.code == 2
     assert captured.out == ""
     assert (
-        "legacy inference execution was removed; "
-        "use python -m cs336_basics.generation.one_request_generate_demo"
+        "legacy inference execution was removed; use python -m cs336_basics.generation.one_request_generate_demo"
     ) in captured.err
     assert list(tmp_path.iterdir()) == []
 
@@ -65,9 +62,10 @@ def test_mapper_config_still_prints_yaml_without_loading_generation_assets(
     monkeypatch.setitem(sys.modules, "cs336_basics.generation", None)
     expected = load_config(mapper_config_path, InferenceMapperConfig)
 
-    assert cli.main(
-        ["inference", "mapper", "config", "--config", str(mapper_config_path)]
-    ) is None
+    assert (
+        cli.main(["inference", "mapper", "config", "--config", str(mapper_config_path)])
+        is None
+    )
 
     captured = capsys.readouterr()
     assert yaml.safe_load(captured.out) == yaml.safe_load(dump_config(expected))

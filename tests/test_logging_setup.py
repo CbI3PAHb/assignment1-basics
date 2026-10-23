@@ -21,7 +21,9 @@ def logger_name(monkeypatch):
     logger.propagate = original_propagate
 
 
-def test_messages_are_routed_once_to_their_streams(logger_name, capsys, tmp_path, monkeypatch):
+def test_messages_are_routed_once_to_their_streams(
+    logger_name, capsys, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     setup_logging(logger_name=logger_name)
     child = logging.getLogger(f"{logger_name}.transformers")
@@ -51,18 +53,25 @@ def test_debug_level_can_be_enabled_with_environment(logger_name, monkeypatch, c
     assert output.err == ""
 
 
-def test_reconfiguration_closes_owned_handlers_without_duplicate_output(logger_name, capsys):
+def test_reconfiguration_closes_owned_handlers_without_duplicate_output(
+    logger_name, capsys
+):
     setup_logging(logger_name=logger_name)
     logger = logging.getLogger(logger_name)
     previous_handlers = logger.handlers[:]
     setup_logging(logger_name=logger_name)
 
-    assert all(handler not in logger.handlers and handler._closed for handler in previous_handlers)
+    assert all(
+        handler not in logger.handlers and handler._closed
+        for handler in previous_handlers
+    )
     logger.info("one message")
     assert capsys.readouterr().out.count("one message") == 1
 
 
-def test_silent_disables_both_streams_and_creates_no_files(tmp_path, logger_name, monkeypatch, capsys):
+def test_silent_disables_both_streams_and_creates_no_files(
+    tmp_path, logger_name, monkeypatch, capsys
+):
     monkeypatch.chdir(tmp_path)
     setup_logging(logger_name=logger_name, silent=True)
     logger = logging.getLogger(f"{logger_name}.trainer")
@@ -96,7 +105,9 @@ def test_configuring_one_logger_scope_preserves_another(logger_name, capsys):
             logger.propagate = True
 
 
-def test_root_setup_preserves_host_handlers_and_routes_other_packages(monkeypatch, capsys):
+def test_root_setup_preserves_host_handlers_and_routes_other_packages(
+    monkeypatch, capsys
+):
     monkeypatch.delenv("CS336_LOG_LEVEL", raising=False)
     root = logging.getLogger()
     original_handlers, original_level = root.handlers[:], root.level

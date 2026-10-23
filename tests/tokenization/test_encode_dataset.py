@@ -5,8 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from cs336_basics.tokenization.encode_dataset import (encode_dataset,
-                                                      iter_documents)
+from cs336_basics.tokenization.encode_dataset import encode_dataset, iter_documents
 from cs336_basics.tokenization.tokenizer import Tokenizer
 
 

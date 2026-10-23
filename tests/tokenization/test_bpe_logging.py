@@ -31,7 +31,9 @@ def test_setup_logging_is_idempotent_for_child_logger(capsys, monkeypatch) -> No
         logger.propagate = original_propagate
 
 
-def test_bpe_main_configures_stream_logging_without_file_arguments(tmp_path, monkeypatch):
+def test_bpe_main_configures_stream_logging_without_file_arguments(
+    tmp_path, monkeypatch
+):
     configure = Mock()
     train = Mock(return_value=({0: b"a"}, []))
     save = Mock()
@@ -39,12 +41,17 @@ def test_bpe_main_configures_stream_logging_without_file_arguments(tmp_path, mon
     monkeypatch.setattr(bpe_cli, "train_bpe", train)
     monkeypatch.setattr(bpe_cli, "save_tokenizer", save)
 
-    bpe_cli.main([
-        "--dataset-file-path", str(tmp_path / "input.txt"),
-        "--save-file-path", str(tmp_path / "tokenizer.pkl"),
-        "--vocab-size", "256",
-        "--silent",
-    ])
+    bpe_cli.main(
+        [
+            "--dataset-file-path",
+            str(tmp_path / "input.txt"),
+            "--save-file-path",
+            str(tmp_path / "tokenizer.pkl"),
+            "--vocab-size",
+            "256",
+            "--silent",
+        ]
+    )
 
     configure.assert_called_once_with(silent=True)
     train.assert_called_once()

@@ -53,15 +53,24 @@ def test_boolean_conversion_preserves_booleans(converter, value):
 
 @pytest.mark.parametrize("field", ["save_checkpoint", "save_checkpoint_at_the_end"])
 @pytest.mark.parametrize("value", [0, 1, 0.0, "true", "false", None, []])
-def test_checkpoint_flags_reject_boolean_coercion(converter, raw_experiment, field, value):
-    raw_experiment["checkpoint"] = {"save_checkpoint": True, "save_checkpoint_at_the_end": True, field: value}
+def test_checkpoint_flags_reject_boolean_coercion(
+    converter, raw_experiment, field, value
+):
+    raw_experiment["checkpoint"] = {
+        "save_checkpoint": True,
+        "save_checkpoint_at_the_end": True,
+        field: value,
+    }
 
     with pytest.raises(ClassValidationError) as caught:
         converter.structure(raw_experiment, ExperimentConfig)
 
     assert any(
         isinstance(error, TypeError)
-        and any(getattr(note, "name", None) == field for note in getattr(error, "__notes__", ()))
+        and any(
+            getattr(note, "name", None) == field
+            for note in getattr(error, "__notes__", ())
+        )
         for error in exception_leaves(caught.value)
     )
 
@@ -82,7 +91,9 @@ def test_checkpoint_flags_reject_boolean_coercion(converter, raw_experiment, fie
         (("seed",), True),
     ],
 )
-def test_nested_integer_fields_use_strict_conversion(converter, raw_experiment, path, value):
+def test_nested_integer_fields_use_strict_conversion(
+    converter, raw_experiment, path, value
+):
     _mapping_at(raw_experiment, path[:-1])[path[-1]] = value
 
     with pytest.raises(ClassValidationError) as caught:
@@ -95,7 +106,9 @@ def test_nested_integer_fields_use_strict_conversion(converter, raw_experiment, 
 
 
 @pytest.mark.parametrize("save_checkpoint_interval", [None, 5])
-def test_optional_integer_accepts_none_or_integer(converter, raw_experiment, save_checkpoint_interval):
+def test_optional_integer_accepts_none_or_integer(
+    converter, raw_experiment, save_checkpoint_interval
+):
     raw_experiment["checkpoint"] = {
         "save_checkpoint": save_checkpoint_interval is not None,
         "save_checkpoint_interval": save_checkpoint_interval,
@@ -115,7 +128,9 @@ def test_optional_integer_accepts_none_or_integer(converter, raw_experiment, sav
         (("lr_scheduler", "min_lr"), True),
     ],
 )
-def test_nested_float_fields_reject_coercible_nonnumbers(converter, raw_experiment, path, value):
+def test_nested_float_fields_reject_coercible_nonnumbers(
+    converter, raw_experiment, path, value
+):
     _mapping_at(raw_experiment, path[:-1])[path[-1]] = value
 
     with pytest.raises(ClassValidationError) as caught:
@@ -129,7 +144,12 @@ def test_nested_float_fields_reject_coercible_nonnumbers(converter, raw_experime
 
 def test_nested_float_fields_accept_integer_values(converter, raw_experiment):
     raw_experiment["model"]["rope_theta"] = 10_000
-    raw_experiment["optimizer"] = {"lr": 1, "eps": 1, "weight_decay": 0, "betas": [0, 0.9]}
+    raw_experiment["optimizer"] = {
+        "lr": 1,
+        "eps": 1,
+        "weight_decay": 0,
+        "betas": [0, 0.9],
+    }
     raw_experiment["lr_scheduler"] = {"min_lr": 0}
     raw_experiment["loop"]["max_grad_norm"] = 1
 
@@ -159,19 +179,24 @@ def test_nested_float_fields_accept_integer_values(converter, raw_experiment):
         ("checkpoint",),
     ],
 )
-def test_unknown_fields_are_rejected_at_every_config_level(converter, raw_experiment, path):
+def test_unknown_fields_are_rejected_at_every_config_level(
+    converter, raw_experiment, path
+):
     _mapping_at(raw_experiment, path)["unexpected_field"] = 123
 
     with pytest.raises(ClassValidationError) as caught:
         converter.structure(raw_experiment, ExperimentConfig)
 
     assert any(
-        isinstance(error, ForbiddenExtraKeysError) and error.extra_fields == {"unexpected_field"}
+        isinstance(error, ForbiddenExtraKeysError)
+        and error.extra_fields == {"unexpected_field"}
         for error in exception_leaves(caught.value)
     )
 
 
-@pytest.mark.parametrize("path", [("model",), ("model", "d_model"), ("data", "train"), ("loop", "max_steps")])
+@pytest.mark.parametrize(
+    "path", [("model",), ("model", "d_model"), ("data", "train"), ("loop", "max_steps")]
+)
 def test_missing_required_fields_are_rejected(converter, raw_experiment, path):
     del _mapping_at(raw_experiment, path[:-1])[path[-1]]
 
@@ -184,9 +209,13 @@ def test_missing_required_fields_are_rejected(converter, raw_experiment, path):
     )
 
 
-@pytest.mark.parametrize("path", [("output_dir",), ("data", "train", "path"), ("checkpoint", "resume_from")])
+@pytest.mark.parametrize(
+    "path", [("output_dir",), ("data", "train", "path"), ("checkpoint", "resume_from")]
+)
 @pytest.mark.parametrize("value", ["", 123, True])
-def test_path_converters_see_and_reject_invalid_original_values(converter, raw_experiment, path, value):
+def test_path_converters_see_and_reject_invalid_original_values(
+    converter, raw_experiment, path, value
+):
     _mapping_at(raw_experiment, path[:-1])[path[-1]] = value
 
     with pytest.raises(ClassValidationError) as caught:
@@ -207,7 +236,9 @@ def test_beta_converter_accepts_lists_and_tuples(converter, raw_experiment, valu
 
 
 @pytest.mark.parametrize("value", [{0: None, 0.9: None}, "01", None])
-def test_beta_converter_rejects_other_iterables_before_tuple_structuring(converter, raw_experiment, value):
+def test_beta_converter_rejects_other_iterables_before_tuple_structuring(
+    converter, raw_experiment, value
+):
     raw_experiment["optimizer"]["betas"] = value
 
     with pytest.raises(ClassValidationError) as caught:
@@ -220,11 +251,16 @@ def test_beta_converter_rejects_other_iterables_before_tuple_structuring(convert
 
 
 @pytest.mark.parametrize("value", [[False, 0.9], ["0.9", 0.999]])
-def test_beta_members_are_validated_without_scalar_coercion(converter, raw_experiment, value):
+def test_beta_members_are_validated_without_scalar_coercion(
+    converter, raw_experiment, value
+):
     raw_experiment["optimizer"]["betas"] = value
     with pytest.raises(ClassValidationError) as caught:
         converter.structure(raw_experiment, ExperimentConfig)
-    assert any(isinstance(error, (TypeError, ValueError)) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, (TypeError, ValueError))
+        for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize("invalid", [False, True])
@@ -257,7 +293,9 @@ def test_converter_factories_are_independent():
         untouched.structure("7", int)
 
 
-def test_local_converter_does_not_change_global_cattrs_defaults(converter, raw_experiment):
+def test_local_converter_does_not_change_global_cattrs_defaults(
+    converter, raw_experiment
+):
     with pytest.raises(TypeError):
         converter.structure("128", int)
     assert cattrs.structure("128", int) == 128
@@ -273,4 +311,6 @@ def test_local_converter_does_not_change_global_cattrs_defaults(converter, raw_e
     raw_experiment["unexpected_field"] = 123
     with pytest.raises(ClassValidationError):
         converter.structure(raw_experiment, ExperimentConfig)
-    assert isinstance(cattrs.structure(raw_experiment, ExperimentConfig), ExperimentConfig)
+    assert isinstance(
+        cattrs.structure(raw_experiment, ExperimentConfig), ExperimentConfig
+    )

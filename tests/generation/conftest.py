@@ -1,16 +1,16 @@
-"""CPU Engine construction for generation behavior tests without artifacts."""
+"""CPU/CUDA Engine construction for generation behavior tests without artifacts."""
 
 import importlib
 from pathlib import Path
 
 import pytest
+import torch
 from torch import nn
 
 from cs336_basics.config import EngineConfig, ModelConfig, RuntimeConfig
 
 
-@pytest.fixture
-def engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def _engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, device):
     engine_module = importlib.import_module("cs336_basics.generation.engine")
 
     def build_engine(model: nn.Module, *, vocab_size: int = 32):
@@ -24,7 +24,7 @@ def engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
                 d_ff=32,
             ),
             checkpoint=tmp_path / "unused.pt",
-            runtime=RuntimeConfig(device="cpu"),
+            runtime=RuntimeConfig(device=torch.device(device).type),
         )
 
         def build_model(model_config: ModelConfig) -> nn.Module:
@@ -38,3 +38,14 @@ def engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         return engine_module.Engine(config)
 
     return build_engine
+
+
+@pytest.fixture
+def engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, execution_device):
+    return _engine_factory(monkeypatch, tmp_path, execution_device)
+
+
+@pytest.fixture
+def cpu_engine_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Admission and no-forward lifecycle checks do not require CUDA."""
+    return _engine_factory(monkeypatch, tmp_path, "cpu")

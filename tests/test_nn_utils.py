@@ -6,27 +6,32 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from .adapters import run_cross_entropy, run_gradient_clipping, run_softmax
 
 
-def test_softmax_matches_pytorch():
+def test_softmax_matches_pytorch(execution_device):
     x = torch.tensor(
         [
             [0.4655, 0.8303, 0.9608, 0.9656, 0.6840],
             [0.2583, 0.2198, 0.9334, 0.2995, 0.1722],
             [0.1573, 0.6860, 0.1327, 0.7284, 0.6811],
-        ]
+        ],
+        device=execution_device,
     )
     expected = F.softmax(x, dim=-1)
+    actual = run_softmax(x, dim=-1)
+    assert actual.device == execution_device
     numpy.testing.assert_allclose(
-        run_softmax(x, dim=-1).detach().numpy(), expected.detach().numpy(), atol=1e-6
+        actual.detach().cpu().numpy(), expected.detach().cpu().numpy(), atol=1e-6
     )
     # Test that softmax handles numerical overflow issues
+    shifted_actual = run_softmax(x + 100, dim=-1)
+    assert shifted_actual.device == execution_device
     numpy.testing.assert_allclose(
-        run_softmax(x + 100, dim=-1).detach().numpy(),
-        expected.detach().numpy(),
+        shifted_actual.detach().cpu().numpy(),
+        expected.detach().cpu().numpy(),
         atol=1e-6,
     )
 
 
-def test_cross_entropy():
+def test_cross_entropy(execution_device):
     inputs = torch.tensor(
         [
             [
@@ -41,15 +46,16 @@ def test_cross_entropy():
                 [0.9476, 0.5917, 0.7037, 0.2987, 0.6208],
                 [0.8541, 0.1803, 0.2054, 0.4775, 0.8199],
             ],
-        ]
+        ],
+        device=execution_device,
     )
-    targets = torch.tensor([[1, 0, 2, 2], [4, 1, 4, 0]])
+    targets = torch.tensor([[1, 0, 2, 2], [4, 1, 4, 0]], device=execution_device)
     expected = F.cross_entropy(inputs.view(-1, inputs.size(-1)), targets.view(-1))
+    actual = run_cross_entropy(inputs.view(-1, inputs.size(-1)), targets.view(-1))
+    assert actual.device == execution_device
     numpy.testing.assert_allclose(
-        run_cross_entropy(inputs.view(-1, inputs.size(-1)), targets.view(-1))
-        .detach()
-        .numpy(),
-        expected.detach().numpy(),
+        actual.detach().cpu().numpy(),
+        expected.detach().cpu().numpy(),
         atol=1e-4,
     )
 
@@ -58,19 +64,19 @@ def test_cross_entropy():
     large_expected_cross_entropy = F.cross_entropy(
         large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1)
     )
+    large_actual = run_cross_entropy(
+        large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1)
+    )
+    assert large_actual.device == execution_device
     numpy.testing.assert_allclose(
-        run_cross_entropy(
-            large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1)
-        )
-        .detach()
-        .numpy(),
-        large_expected_cross_entropy.detach().numpy(),
+        large_actual.detach().cpu().numpy(),
+        large_expected_cross_entropy.detach().cpu().numpy(),
         atol=1e-4,
     )
 
 
-def test_gradient_clipping():
-    tensors = [torch.randn((5, 5)) for _ in range(6)]
+def test_gradient_clipping(execution_device):
+    tensors = [torch.randn((5, 5), device=execution_device) for _ in range(6)]
     max_norm = 1e-2
 
     t1 = tuple(torch.nn.Parameter(torch.clone(t)) for t in tensors)
@@ -93,7 +99,7 @@ def test_gradient_clipping():
 
     for t1_grad, t1_c_grad in zip(t1_grads, t1_c_grads):
         numpy.testing.assert_allclose(
-            t1_grad.detach().numpy(),
-            t1_c_grad.detach().numpy(),
+            t1_grad.detach().cpu().numpy(),
+            t1_c_grad.detach().cpu().numpy(),
             atol=1e-6,
         )

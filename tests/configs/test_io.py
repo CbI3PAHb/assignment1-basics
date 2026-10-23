@@ -16,10 +16,10 @@ from cs336_basics.config import (
     DatasetConfig,
     ExperimentConfig,
     LoopConfig,
+    LRSchedulerConfig,
     ModelConfig,
     OptimizerConfig,
     RuntimeConfig,
-    LRSchedulerConfig,
 )
 from cs336_basics.config.io import dump_experiment, load_experiment
 
@@ -39,7 +39,9 @@ def _set_value(raw, dotted_path, value):
     raw[name] = value
 
 
-def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, raw_experiment):
+def test_load_experiment_builds_nested_configs_and_applies_defaults(
+    tmp_path, raw_experiment
+):
     raw_experiment["output_dir"] = "результаты/эксперимент"
     raw_experiment["optimizer"] = {}
     raw_experiment["model"].pop("rope_theta", None)
@@ -66,7 +68,10 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
     assert isinstance(config.checkpoint, CheckpointConfig)
     assert config.output_dir == Path("результаты/эксперимент")
     assert config.model.context_length == raw_experiment["model"]["context_length"]
-    assert config.data.batching.sequence_length == raw_experiment["data"]["batching"]["sequence_length"]
+    assert (
+        config.data.batching.sequence_length
+        == raw_experiment["data"]["batching"]["sequence_length"]
+    )
     assert config.model.rope_theta == DEFAULT_ROPE_THETA
     assert config.data.train.dtype == "uint16"
     assert config.data.batching.type == "random_sequences"
@@ -79,7 +84,9 @@ def test_load_experiment_builds_nested_configs_and_applies_defaults(tmp_path, ra
     assert config.seed == 42
 
 
-def test_load_experiment_does_not_open_datasets_or_create_run_artifacts(tmp_path, raw_experiment):
+def test_load_experiment_does_not_open_datasets_or_create_run_artifacts(
+    tmp_path, raw_experiment
+):
     output_dir = tmp_path / "run"
     train_dataset_path = tmp_path / "missing-train-tokens.bin"
     eval_dataset_path = tmp_path / "missing-eval-tokens.bin"
@@ -128,7 +135,11 @@ def test_load_experiment_preserves_path_values(tmp_path, raw_experiment, absolut
 @pytest.mark.parametrize("nested", [False, True], ids=["root", "nested"])
 def test_load_experiment_rejects_duplicate_keys(tmp_path, raw_experiment, nested):
     raw_experiment.pop("optimizer" if nested else "output_dir")
-    duplicate = "optimizer:\n  lr: 0.001\n  lr: 0.002\n" if nested else "output_dir: first\noutput_dir: second\n"
+    duplicate = (
+        "optimizer:\n  lr: 0.001\n  lr: 0.002\n"
+        if nested
+        else "output_dir: first\noutput_dir: second\n"
+    )
     path = tmp_path / "experiment.yaml"
     path.write_text(yaml.safe_dump(raw_experiment) + duplicate, encoding="utf-8")
 
@@ -140,7 +151,9 @@ def test_load_experiment_rejects_duplicate_keys(tmp_path, raw_experiment, nested
     assert caught.value.context_mark.line < caught.value.problem_mark.line
 
 
-@pytest.mark.parametrize("field", ["unknown_setting", "model.unknown_setting", "data.train.unknown_setting"])
+@pytest.mark.parametrize(
+    "field", ["unknown_setting", "model.unknown_setting", "data.train.unknown_setting"]
+)
 def test_load_experiment_rejects_unknown_fields(tmp_path, raw_experiment, field):
     _set_value(raw_experiment, field, 1)
 
@@ -148,12 +161,15 @@ def test_load_experiment_rejects_unknown_fields(tmp_path, raw_experiment, field)
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
     assert any(
-        isinstance(error, ForbiddenExtraKeysError) and "unknown_setting" in error.extra_fields
+        isinstance(error, ForbiddenExtraKeysError)
+        and "unknown_setting" in error.extra_fields
         for error in exception_leaves(caught.value)
     )
 
 
-def test_load_experiment_generates_output_dir_and_preserves_it_in_dump(tmp_path, raw_experiment, monkeypatch):
+def test_load_experiment_generates_output_dir_and_preserves_it_in_dump(
+    tmp_path, raw_experiment, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     del raw_experiment["output_dir"]
     path = _write_yaml(tmp_path, raw_experiment)
@@ -165,23 +181,31 @@ def test_load_experiment_generates_output_dir_and_preserves_it_in_dump(tmp_path,
     assert list(tmp_path.iterdir()) == [path]
 
     path.write_text(dump_experiment(config), encoding="utf-8")
-    assert yaml.safe_load(path.read_text(encoding="utf-8"))["output_dir"] == str(config.output_dir)
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["output_dir"] == str(
+        config.output_dir
+    )
     assert load_experiment(path) == config
     assert list(tmp_path.iterdir()) == [path]
 
 
 @pytest.mark.parametrize("value", [None, "", False])
-def test_load_experiment_rejects_invalid_explicit_output_dir(tmp_path, raw_experiment, value):
+def test_load_experiment_rejects_invalid_explicit_output_dir(
+    tmp_path, raw_experiment, value
+):
     raw_experiment["output_dir"] = value
 
     with pytest.raises(ClassValidationError) as caught:
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
-    assert any(isinstance(error, ConfigError) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, ConfigError) for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize("field", ["model.d_model", "data.batching.micro_batch_size"])
-def test_load_experiment_rejects_missing_required_fields(tmp_path, raw_experiment, field):
+def test_load_experiment_rejects_missing_required_fields(
+    tmp_path, raw_experiment, field
+):
     *parents, name = field.split(".")
     raw = raw_experiment
     for parent in parents:
@@ -191,7 +215,10 @@ def test_load_experiment_rejects_missing_required_fields(tmp_path, raw_experimen
     with pytest.raises(ClassValidationError) as caught:
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
-    assert any(isinstance(error, KeyError) and error.args == (name,) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, KeyError) and error.args == (name,)
+        for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize(
@@ -205,13 +232,18 @@ def test_load_experiment_rejects_missing_required_fields(tmp_path, raw_experimen
         ("seed", 1.5),
     ],
 )
-def test_load_experiment_rejects_invalid_numeric_types(tmp_path, raw_experiment, field, value):
+def test_load_experiment_rejects_invalid_numeric_types(
+    tmp_path, raw_experiment, field, value
+):
     _set_value(raw_experiment, field, value)
 
     with pytest.raises(ClassValidationError) as caught:
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
-    assert any(isinstance(error, TypeError) and str(value) in str(error) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, TypeError) and str(value) in str(error)
+        for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize(
@@ -225,7 +257,9 @@ def test_load_experiment_rejects_invalid_numeric_types(tmp_path, raw_experiment,
         ("optimizer.betas", [True, 0.9]),
     ],
 )
-def test_load_experiment_rejects_invalid_numeric_values(tmp_path, raw_experiment, field, value):
+def test_load_experiment_rejects_invalid_numeric_values(
+    tmp_path, raw_experiment, field, value
+):
     _set_value(raw_experiment, field, value)
 
     with pytest.raises((ClassValidationError, ValueError)) as caught:
@@ -239,16 +273,24 @@ def test_load_experiment_rejects_invalid_numeric_values(tmp_path, raw_experiment
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("optimizer.lr", float("nan")), ("model.rope_theta", float("inf")), ("loop.max_grad_norm", float("-inf"))],
+    [
+        ("optimizer.lr", float("nan")),
+        ("model.rope_theta", float("inf")),
+        ("loop.max_grad_norm", float("-inf")),
+    ],
 )
-def test_load_experiment_rejects_nonfinite_numbers(tmp_path, raw_experiment, field, value):
+def test_load_experiment_rejects_nonfinite_numbers(
+    tmp_path, raw_experiment, field, value
+):
     _set_value(raw_experiment, field, value)
 
     with pytest.raises((ClassValidationError, ConfigError)) as caught:
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
     assert any(
-        isinstance(error, ConfigError) and "finite" in str(error) and field.split(".")[-1] in str(error)
+        isinstance(error, ConfigError)
+        and "finite" in str(error)
+        and field.split(".")[-1] in str(error)
         for error in exception_leaves(caught.value)
     )
 
@@ -263,7 +305,9 @@ def test_load_experiment_rejects_nonfinite_numbers(tmp_path, raw_experiment, fie
         ("data.batching.type", "sequential"),
     ],
 )
-def test_load_experiment_rejects_unsupported_literals(tmp_path, raw_experiment, field, value):
+def test_load_experiment_rejects_unsupported_literals(
+    tmp_path, raw_experiment, field, value
+):
     _set_value(raw_experiment, field, value)
 
     with pytest.raises(ClassValidationError) as caught:
@@ -271,34 +315,59 @@ def test_load_experiment_rejects_unsupported_literals(tmp_path, raw_experiment, 
 
     attribute_name = field.split(".")[-1]
     assert any(
-        any(getattr(note, "name", None) == attribute_name for note in getattr(error, "__notes__", ()))
+        any(
+            getattr(note, "name", None) == attribute_name
+            for note in getattr(error, "__notes__", ())
+        )
         for error in exception_leaves(caught.value)
     )
 
 
 @pytest.mark.parametrize(
-    "constraint", ["sequence_length", "min_lr", "warmup_steps", "divisible", "even", "mutually exclusive"]
+    "constraint",
+    [
+        "sequence_length",
+        "min_lr",
+        "warmup_steps",
+        "divisible",
+        "even",
+        "mutually exclusive",
+    ],
 )
-def test_load_experiment_checks_field_relationships(tmp_path, raw_experiment, constraint):
+def test_load_experiment_checks_field_relationships(
+    tmp_path, raw_experiment, constraint
+):
     if constraint == "sequence_length":
-        _set_value(raw_experiment, "data.batching.sequence_length", raw_experiment["model"]["context_length"] + 1)
+        _set_value(
+            raw_experiment,
+            "data.batching.sequence_length",
+            raw_experiment["model"]["context_length"] + 1,
+        )
     elif constraint == "min_lr":
         _set_value(raw_experiment, "optimizer.lr", 0.001)
         _set_value(raw_experiment, "lr_scheduler.min_lr", 0.002)
     elif constraint == "warmup_steps":
-        _set_value(raw_experiment, "lr_scheduler.warmup_steps", raw_experiment["loop"]["max_steps"])
+        _set_value(
+            raw_experiment,
+            "lr_scheduler.warmup_steps",
+            raw_experiment["loop"]["max_steps"],
+        )
     elif constraint == "divisible":
         raw_experiment["model"].update(d_model=10, num_heads=4)
     elif constraint == "even":
         raw_experiment["model"].update(d_model=12, num_heads=4)
     else:
-        raw_experiment["checkpoint"] = {"resume_from": "resume.pt", "init_weights_from": "initial.pt"}
+        raw_experiment["checkpoint"] = {
+            "resume_from": "resume.pt",
+            "init_weights_from": "initial.pt",
+        }
 
     with pytest.raises((ClassValidationError, ConfigError)) as caught:
         load_experiment(_write_yaml(tmp_path, raw_experiment))
 
     assert any(
-        isinstance(error, ConfigError) and constraint in str(error) for error in exception_leaves(caught.value)
+        isinstance(error, ConfigError) and constraint in str(error)
+        for error in exception_leaves(caught.value)
     )
 
 
@@ -311,20 +380,27 @@ def test_load_experiment_checks_field_relationships(tmp_path, raw_experiment, co
     ],
     ids=["disabled-with-periodic", "disabled-with-final", "enabled-without-trigger"],
 )
-def test_load_experiment_rejects_invalid_checkpoint_policy_before_side_effects(tmp_path, raw_experiment, checkpoint):
+def test_load_experiment_rejects_invalid_checkpoint_policy_before_side_effects(
+    tmp_path, raw_experiment, checkpoint
+):
     raw_experiment["checkpoint"] = checkpoint
     path = _write_yaml(tmp_path, raw_experiment)
 
     with pytest.raises((ClassValidationError, ConfigError)) as caught:
         load_experiment(path)
 
-    assert any(isinstance(error, ConfigError) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, ConfigError) for error in exception_leaves(caught.value)
+    )
     assert list(tmp_path.iterdir()) == [path]
     assert not Path(raw_experiment["output_dir"]).exists()
     assert not Path(raw_experiment["data"]["train"]["path"]).exists()
 
 
-@pytest.mark.parametrize("content", ["", "null\n", "hello\n", "3\n", "false\n", "[]\n", "- first\n- second\n"])
+@pytest.mark.parametrize(
+    "content",
+    ["", "null\n", "hello\n", "3\n", "false\n", "[]\n", "- first\n- second\n"],
+)
 def test_load_experiment_requires_a_mapping_root(tmp_path, content):
     path = tmp_path / "experiment.yaml"
     path.write_text(content, encoding="utf-8")
@@ -334,7 +410,9 @@ def test_load_experiment_requires_a_mapping_root(tmp_path, content):
 
 
 @pytest.mark.parametrize(
-    "content", ["model: [1,\n", "---\nseed: 1\n---\nseed: 2\n"], ids=["syntax", "multiple-documents"]
+    "content",
+    ["model: [1,\n", "---\nseed: 1\n---\nseed: 2\n"],
+    ids=["syntax", "multiple-documents"],
 )
 def test_load_experiment_rejects_invalid_yaml(tmp_path, content):
     path = tmp_path / "experiment.yaml"
@@ -379,7 +457,11 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
         "eps": 1e-8,
         "weight_decay": 0.01,
     }
-    assert raw["loop"] == {"max_steps": 100, "gradient_accumulation_steps": 1, "max_grad_norm": 1.0}
+    assert raw["loop"] == {
+        "max_steps": 100,
+        "gradient_accumulation_steps": 1,
+        "max_grad_norm": 1.0,
+    }
     assert raw["lr_scheduler"] == {"type": "cosine", "warmup_steps": 0, "min_lr": 1e-6}
     assert raw["runtime"] == {"device": "cuda"}
     assert raw["checkpoint"] == {
@@ -396,7 +478,9 @@ def test_dump_experiment_includes_defaults_in_safe_yaml(tmp_path, raw_experiment
     }
 
 
-def test_dump_experiment_serializes_paths_and_betas_without_mutating_config(tmp_path, raw_experiment):
+def test_dump_experiment_serializes_paths_and_betas_without_mutating_config(
+    tmp_path, raw_experiment
+):
     raw_experiment["output_dir"] = "результаты/эксперимент"
     raw_experiment["data"]["train"]["path"] = "данные/tokens.bin"
     raw_experiment["optimizer"]["betas"] = [0.8, 0.95]
@@ -428,11 +512,17 @@ def test_dump_experiment_serializes_paths_and_betas_without_mutating_config(tmp_
         {},
         {"save_checkpoint": True, "save_checkpoint_interval": 2},
         {"save_checkpoint": True, "save_checkpoint_at_the_end": True},
-        {"save_checkpoint": True, "save_checkpoint_interval": 2, "save_checkpoint_at_the_end": True},
+        {
+            "save_checkpoint": True,
+            "save_checkpoint_interval": 2,
+            "save_checkpoint_at_the_end": True,
+        },
     ],
     ids=["disabled", "periodic", "final", "periodic-and-final"],
 )
-def test_dump_experiment_round_trips_through_load(tmp_path, raw_experiment, checkpoint_mode, save_policy):
+def test_dump_experiment_round_trips_through_load(
+    tmp_path, raw_experiment, checkpoint_mode, save_policy
+):
     raw_experiment["output_dir"] = "результаты/эксперимент"
     raw_experiment["seed"] = 0
     raw_experiment["model"]["rope_theta"] = 5_000

@@ -1,4 +1,4 @@
-"""Numerical Engine execution with CPU fakes and a tiny causal model."""
+"""Numerical Engine execution with CPU/CUDA fakes and a tiny causal model."""
 
 import importlib
 import math
@@ -15,13 +15,16 @@ from cs336_basics.generation.results import ModelOutput
 from cs336_basics.generation.sampling import Sampler
 from cs336_basics.transformers.transformers import TransformerLM
 
-
 engine_module = importlib.import_module("cs336_basics.generation.engine")
 WeightedStep = tuple[tuple[tuple[int, ...], dict[int, float]], ...]
 
 
 def make_engine(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, model: nn.Module
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    model: nn.Module,
+    *,
+    device: torch.device,
 ):
     """Use the real constructor and sampler without opening a checkpoint."""
     model_config = ModelConfig(
@@ -35,7 +38,7 @@ def make_engine(
     config = EngineConfig(
         model=model_config,
         checkpoint=tmp_path / "unused.pt",
-        runtime=RuntimeConfig(device="cpu"),
+        runtime=RuntimeConfig(device=device.type),
     )
     built: list[ModelConfig] = []
     loaded: list[tuple[Path, nn.Module]] = []
@@ -53,7 +56,9 @@ def make_engine(
     assert engine.model is model
     assert isinstance(engine.sampler, Sampler)
     assert engine.sampler.vocab_size == config.model.vocab_size
-    assert torch.device(engine.sampler.device).type == "cpu"
+    assert torch.device(engine.sampler.device).type == device.type
+    assert all(parameter.device == device for parameter in model.parameters())
+    assert all(buffer.device == device for buffer in model.buffers())
     return engine, config, built, loaded
 
 
@@ -70,14 +75,15 @@ def request_snapshot(batch: Batch) -> tuple:
     )
 
 
-def assert_output(output: ModelOutput, expected: list[int]) -> None:
+def assert_output(
+    output: ModelOutput, expected: list[int], *, device: torch.device
+) -> None:
     assert isinstance(output, ModelOutput)
     tokens = output.next_tokens_gpu
     assert isinstance(tokens, torch.Tensor)
     assert tokens.shape == (len(expected),)
     assert tokens.dtype == torch.int64
-    # The execution device is CPU for these CPU-only cases.
-    assert tokens.device.type == "cpu"
+    assert tokens.device == device
     assert tokens.tolist() == expected
 
 
@@ -86,6 +92,7 @@ class WeightedLM(nn.Module):
 
     def __init__(self, steps: tuple[WeightedStep, ...]) -> None:
         super().__init__()
+        self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
         self.steps = steps
         self.seen: list[tuple[tuple[int, ...], ...]] = []
 
@@ -98,11 +105,9 @@ class WeightedLM(nn.Module):
         width = max(len(prefix) for prefix, _ in step)
         assert token_ids.shape == (len(step), width)
         assert token_ids.dtype == torch.int64
-        assert token_ids.device.type == "cpu"
+        assert token_ids.device == self._device_anchor.device
         rows = tuple(tuple(row) for row in token_ids.tolist())
-        expected_rows = [
-            prefix + (0,) * (width - len(prefix)) for prefix, _ in step
-        ]
+        expected_rows = [prefix + (0,) * (width - len(prefix)) for prefix, _ in step]
         assert Counter(rows) == Counter(expected_rows)
         by_row = {
             padded: (prefix, weights)
@@ -110,7 +115,7 @@ class WeightedLM(nn.Module):
         }
         self.seen.append(rows)
 
-        logits = torch.full((len(step), width, 32), -math.inf)
+        logits = torch.full((len(step), width, 32), -math.inf, device=token_ids.device)
         logits[:, :, 31] = 1000.0
         for row_index, row in enumerate(rows):
             prefix, weights = by_row[row]
@@ -122,7 +127,7 @@ class WeightedLM(nn.Module):
 
 
 def test_engine_initializes_once_and_reuses_resources_without_updating_requests(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, execution_device
 ) -> None:
     first = Req(token_ids=[11, 24, 7])
     first.start()
@@ -132,7 +137,9 @@ def test_engine_initializes_once_and_reuses_resources_without_updating_requests(
     model = WeightedLM(
         ((first_action, second_action), (second_action, first_action, second_action))
     )
-    engine, config, built, loaded = make_engine(monkeypatch, tmp_path, model)
+    engine, config, built, loaded = make_engine(
+        monkeypatch, tmp_path, model, device=execution_device
+    )
     sampler = engine.sampler
     assert not model.training, "The retained model must be ready for inference"
 
@@ -142,7 +149,9 @@ def test_engine_initializes_once_and_reuses_resources_without_updating_requests(
     ):
         before = request_snapshot(batch)
         args = sampler.prepare_batch_sampling_args(batch)
-        assert_output(engine.forward_batch(batch, args), expected)
+        assert_output(
+            engine.forward_batch(batch, args), expected, device=execution_device
+        )
         assert request_snapshot(batch) == before
         assert engine.model is model
         assert engine.sampler is sampler
@@ -153,7 +162,7 @@ def test_engine_initializes_once_and_reuses_resources_without_updating_requests(
 
 
 def test_engine_uses_supplied_mixed_sampling_args_and_valid_last_positions(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, execution_device
 ) -> None:
     batch = Batch(
         reqs=[
@@ -172,13 +181,13 @@ def test_engine_uses_supplied_mixed_sampling_args_and_valid_last_positions(
             ),
         )
     )
-    engine, _, _, _ = make_engine(monkeypatch, tmp_path, model)
+    engine, _, _, _ = make_engine(monkeypatch, tmp_path, model, device=execution_device)
     observed: list[torch.Tensor] = []
 
     def draw(probs, num_samples, replacement=False, *, generator=None, out=None):
         assert num_samples == 1
         assert probs.ndim in (1, 2)
-        assert probs.device.type == "cpu"
+        assert probs.device == execution_device
         rows = probs.reshape(-1, probs.shape[-1])
         assert torch.isfinite(rows).all()
         assert (rows >= 0).all()
@@ -196,8 +205,8 @@ def test_engine_uses_supplied_mixed_sampling_args_and_valid_last_positions(
     monkeypatch.setattr(torch, "multinomial", draw)
     before = request_snapshot(batch)
     args = engine.sampler.prepare_batch_sampling_args(batch)
-    assert_output(engine.forward_batch(batch, args), [8, 7])
-    expected_probs = torch.tensor([9 / 25, 16 / 25])
+    assert_output(engine.forward_batch(batch, args), [8, 7], device=execution_device)
+    expected_probs = torch.tensor([9 / 25, 16 / 25], device=execution_device)
     assert any(
         row[row > 0].shape == expected_probs.shape
         and torch.allclose(
@@ -229,33 +238,44 @@ class RecordingTransformerLM(TransformerLM):
 
 
 def test_engine_right_padding_preserves_real_valid_logits_with_different_fillers(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, execution_device
 ) -> None:
     with torch.random.fork_rng(devices=[]):
-        torch.manual_seed(336)
+        torch.random.default_generator.manual_seed(336)
         model = RecordingTransformerLM()
-    engine, _, _, _ = make_engine(monkeypatch, tmp_path, model)
+    engine, _, _, _ = make_engine(monkeypatch, tmp_path, model, device=execution_device)
     prefixes = ((11, 24, 7), (4,), (8, 6))
     batch = Batch(reqs=[Req(token_ids=list(prefix)) for prefix in prefixes])
     before = request_snapshot(batch)
     with torch.inference_mode():
         reference = torch.stack(
-            [model(torch.tensor([prefix], dtype=torch.int64))[0, -1] for prefix in prefixes]
+            [
+                model(
+                    torch.tensor([prefix], dtype=torch.int64, device=execution_device)
+                )[0, -1]
+                for prefix in prefixes
+            ]
         )
     expected_tokens = reference.argmax(dim=-1).tolist()
     model.recorded.clear()
 
     for pad_id in (0, 31):
         args = engine.sampler.prepare_batch_sampling_args(batch)
-        assert_output(engine.forward_batch(batch, args, pad_id=pad_id), expected_tokens)
+        assert_output(
+            engine.forward_batch(batch, args, pad_id=pad_id),
+            expected_tokens,
+            device=execution_device,
+        )
         padded, logits = model.recorded[-1]
         expected_padded = [
             list(prefix) + [pad_id] * (3 - len(prefix)) for prefix in prefixes
         ]
         assert padded.tolist() == expected_padded
         selected_logits = logits[
-            torch.arange(len(prefixes)),
-            torch.tensor([len(prefix) - 1 for prefix in prefixes]),
+            torch.arange(len(prefixes), device=execution_device),
+            torch.tensor(
+                [len(prefix) - 1 for prefix in prefixes], device=execution_device
+            ),
             :,
         ]
         torch.testing.assert_close(selected_logits, reference, rtol=1e-5, atol=1e-6)
@@ -267,19 +287,26 @@ def test_engine_right_padding_preserves_real_valid_logits_with_different_fillers
     "failure",
     [
         pytest.param(RuntimeError("Injected execution failure"), id="runtime_error"),
-        pytest.param(KeyboardInterrupt("Injected interruption"), id="keyboard_interrupt"),
+        pytest.param(
+            KeyboardInterrupt("Injected interruption"), id="keyboard_interrupt"
+        ),
         pytest.param(SystemExit("Injected shutdown"), id="system_exit"),
     ],
 )
 def test_engine_propagates_shared_forward_failures_without_updating_requests(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: BaseException
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure: BaseException,
+    execution_device,
 ) -> None:
     class FailingLM(nn.Module):
         def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
             assert not torch.is_grad_enabled()
             raise failure
 
-    engine, _, _, _ = make_engine(monkeypatch, tmp_path, FailingLM())
+    engine, _, _, _ = make_engine(
+        monkeypatch, tmp_path, FailingLM(), device=execution_device
+    )
     batch = Batch(reqs=[Req(token_ids=[11, 24, 7]), Req(token_ids=[4])])
     batch.reqs[0].start()
     before = request_snapshot(batch)

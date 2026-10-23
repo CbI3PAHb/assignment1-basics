@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 
 from cs336_basics import cli
-from cs336_basics.training import run as training_run
 from cs336_basics.config.io import load_experiment
+from cs336_basics.training import run as training_run
 
 
 class TinyLM(nn.Module):
@@ -69,7 +69,10 @@ def cpu_experiment(minimal_experiment, built_components):
     minimal_experiment["runtime"] = {"device": "cpu"}
     minimal_experiment["optimizer"] = {"lr": 0.02}
     minimal_experiment["lr_scheduler"] = {"min_lr": 0.001}
-    minimal_experiment["checkpoint"] = {"save_checkpoint": True, "save_checkpoint_interval": 2}
+    minimal_experiment["checkpoint"] = {
+        "save_checkpoint": True,
+        "save_checkpoint_interval": 2,
+    }
     minimal_experiment["loop"]["gradient_accumulation_steps"] = 2
     _write_tokens(minimal_experiment)
     return minimal_experiment
@@ -111,11 +114,15 @@ def _assert_model_changed(record):
     )
 
 
-def test_run_connects_train_and_eval_batch_sources(cpu_experiment, write_experiment, monkeypatch):
+def test_run_connects_train_and_eval_batch_sources(
+    cpu_experiment, write_experiment, monkeypatch
+):
     # Constant, distinct token IDs make the check independent of sampled positions.
     token_ids = {"train": 3, "eval": 17}
     for split, token_id in token_ids.items():
-        np.full(96, token_id, dtype=np.uint16).tofile(cpu_experiment["data"][split]["path"])
+        np.full(96, token_id, dtype=np.uint16).tofile(
+            cpu_experiment["data"][split]["path"]
+        )
 
     trainer_constructor = Mock(name="Trainer")
     monkeypatch.setattr(training_run, "Trainer", trainer_constructor)
@@ -134,7 +141,9 @@ def test_run_connects_train_and_eval_batch_sources(cpu_experiment, write_experim
             assert tensor.shape == expected_shape
             assert tensor.dtype == torch.int64
             assert tensor.device.type == "cpu"
-            torch.testing.assert_close(tensor, torch.full(expected_shape, token_id, dtype=torch.int64))
+            torch.testing.assert_close(
+                tensor, torch.full(expected_shape, token_id, dtype=torch.int64)
+            )
 
 
 def test_run_trains_and_saves_completed_updates_and_resolved_config(
@@ -148,8 +157,12 @@ def test_run_trains_and_saves_completed_updates_and_resolved_config(
     model_record = built_components["models"][-1]
     optimizer = built_components["optimizers"][-1]["optimizer"]
     _assert_model_changed(model_record)
-    _assert_state_equal(checkpoints[-1][1]["model_state_dict"], model_record["model"].state_dict())
-    _assert_state_equal(checkpoints[-1][1]["optimizer_state_dict"], optimizer.state_dict())
+    _assert_state_equal(
+        checkpoints[-1][1]["model_state_dict"], model_record["model"].state_dict()
+    )
+    _assert_state_equal(
+        checkpoints[-1][1]["optimizer_state_dict"], optimizer.state_dict()
+    )
     assert checkpoints[-1][1]["optimizer_state_dict"]["state"]
 
     resolved_path = output_dir / "config.yaml"
@@ -171,8 +184,14 @@ def test_run_with_checkpoint_saving_disabled_still_trains(
     _assert_model_changed(built_components["models"][-1])
 
 
-def test_run_passes_evaluation_settings_to_trainer(cpu_experiment, write_experiment, monkeypatch):
-    cpu_experiment["evaluation"] = {"do_eval": True, "eval_interval": 2, "num_batches": 1}
+def test_run_passes_evaluation_settings_to_trainer(
+    cpu_experiment, write_experiment, monkeypatch
+):
+    cpu_experiment["evaluation"] = {
+        "do_eval": True,
+        "eval_interval": 2,
+        "num_batches": 1,
+    }
     evaluations = []
     real_evaluate = training_run.Trainer.evaluate
 
@@ -189,11 +208,15 @@ def test_run_passes_evaluation_settings_to_trainer(cpu_experiment, write_experim
     for _, metrics in evaluations:
         assert torch.isfinite(metrics["evaluation_loss"])
         assert not metrics["evaluation_loss"].requires_grad
-        torch.testing.assert_close(metrics["evaluation_perplexity"], metrics["evaluation_loss"].exp())
+        torch.testing.assert_close(
+            metrics["evaluation_perplexity"], metrics["evaluation_loss"].exp()
+        )
 
 
 @pytest.mark.parametrize("interval, expected_steps", [(None, [4]), (3, [3, 4])])
-def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_components, interval, expected_steps):
+def test_run_saves_final_training_state(
+    cpu_experiment, write_experiment, built_components, interval, expected_steps
+):
     cpu_experiment["checkpoint"] = {
         "save_checkpoint": True,
         "save_checkpoint_interval": interval,
@@ -204,11 +227,14 @@ def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_
     checkpoints = _saved_checkpoints(Path(cpu_experiment["output_dir"]))
     assert [artifact["iteration"] for _, artifact in checkpoints] == expected_steps
     _assert_state_equal(
-        checkpoints[-1][1]["model_state_dict"], built_components["models"][-1]["model"].state_dict()
+        checkpoints[-1][1]["model_state_dict"],
+        built_components["models"][-1]["model"].state_dict(),
     )
     _assert_state_equal(
-        checkpoints[-1][1]["optimizer_state_dict"], built_components["optimizers"][-1]["optimizer"].state_dict()
+        checkpoints[-1][1]["optimizer_state_dict"],
+        built_components["optimizers"][-1]["optimizer"].state_dict(),
     )
+
 
 @pytest.mark.parametrize("split", ["train", "eval"])
 def test_missing_dataset_allows_retry_with_same_output_directory(
@@ -223,7 +249,9 @@ def test_missing_dataset_allows_retry_with_same_output_directory(
 
     _write_tokens(cpu_experiment)
     _run_cli(cpu_experiment, write_experiment)
-    assert [artifact["iteration"] for _, artifact in _saved_checkpoints(output_dir)] == [2, 4]
+    assert [
+        artifact["iteration"] for _, artifact in _saved_checkpoints(output_dir)
+    ] == [2, 4]
 
 
 @pytest.mark.parametrize("token_count", [1, 8])
@@ -394,7 +422,9 @@ def test_resume_restores_optimizer_and_saves_at_absolute_update_count(
     cpu_experiment["loop"]["max_steps"] = 2
     cpu_experiment["output_dir"] = str(tmp_path / "source")
     _run_cli(cpu_experiment, write_experiment)
-    source_path, source_artifact = _saved_checkpoints(Path(cpu_experiment["output_dir"]))[0]
+    source_path, source_artifact = _saved_checkpoints(
+        Path(cpu_experiment["output_dir"])
+    )[0]
 
     cpu_experiment["loop"]["max_steps"] = 4
     cpu_experiment["output_dir"] = str(tmp_path / "resumed")
@@ -409,7 +439,8 @@ def test_resume_restores_optimizer_and_saves_at_absolute_update_count(
         source_artifact["optimizer_state_dict"]["state"],
     )
     _assert_state_equal(
-        checkpoints[0][1]["optimizer_state_dict"], optimizer_record["optimizer"].state_dict()
+        checkpoints[0][1]["optimizer_state_dict"],
+        optimizer_record["optimizer"].state_dict(),
     )
     _assert_state_equal(
         built_components["models"][-1]["model"].first_forward_state,
@@ -423,7 +454,9 @@ def test_init_weights_restores_model_but_resets_optimizer_and_update_count(
     cpu_experiment["loop"]["max_steps"] = 2
     cpu_experiment["output_dir"] = str(tmp_path / "source")
     _run_cli(cpu_experiment, write_experiment)
-    source_path, source_artifact = _saved_checkpoints(Path(cpu_experiment["output_dir"]))[0]
+    source_path, source_artifact = _saved_checkpoints(
+        Path(cpu_experiment["output_dir"])
+    )[0]
 
     cpu_experiment["loop"]["max_steps"] = 1
     cpu_experiment["output_dir"] = str(tmp_path / "initialized")

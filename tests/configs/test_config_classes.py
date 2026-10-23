@@ -14,10 +14,10 @@ from cs336_basics.config import (
     DatasetConfig,
     ExperimentConfig,
     LoopConfig,
+    LRSchedulerConfig,
     ModelConfig,
     OptimizerConfig,
     RuntimeConfig,
-    LRSchedulerConfig,
 )
 from cs336_basics.config import training as training_module
 
@@ -56,7 +56,9 @@ def test_configuration_converts_serializable_inputs(experiment):
     assert CheckpointConfig().resume_from is None
 
 
-def test_output_dir_default_is_generated_for_each_config(experiment, tmp_path, monkeypatch):
+def test_output_dir_default_is_generated_for_each_config(
+    experiment, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     moments = [
         datetime(2026, 10, 13, 12, 0, 1, tzinfo=timezone.utc),
@@ -71,7 +73,9 @@ def test_output_dir_default_is_generated_for_each_config(experiment, tmp_path, m
     configs = [ExperimentConfig(**arguments), ExperimentConfig(**arguments)]
 
     for config, moment in zip(configs, moments, strict=True):
-        assert config.output_dir == Path("artifacts/training") / moment.astimezone().strftime("%Y%m%d_%H%M%S")
+        assert config.output_dir == Path(
+            "artifacts/training"
+        ) / moment.astimezone().strftime("%Y%m%d_%H%M%S")
     assert configs[0].output_dir != configs[1].output_dir
     assert list(tmp_path.iterdir()) == []
 
@@ -126,7 +130,8 @@ def test_experiment_checks_component_compatibility(experiment):
         evolve(experiment, data=evolve(experiment.data, batching=oversized_batching))
     with pytest.raises(ConfigError, match="min_lr"):
         evolve(
-            experiment, lr_scheduler=LRSchedulerConfig(min_lr=experiment.optimizer.lr * 2)
+            experiment,
+            lr_scheduler=LRSchedulerConfig(min_lr=experiment.optimizer.lr * 2),
         )
     with pytest.raises(ConfigError, match="warmup_steps"):
         evolve(
@@ -185,7 +190,8 @@ def test_runtime_rejects_indices_and_unsupported_devices(device):
 
 
 @pytest.mark.parametrize(
-    "field", ["vocab_size", "context_length", "d_model", "num_layers", "num_heads", "d_ff"]
+    "field",
+    ["vocab_size", "context_length", "d_model", "num_layers", "num_heads", "d_ff"],
 )
 @pytest.mark.parametrize("value", [0, True])
 def test_model_requires_positive_integer_dimensions(experiment, field, value):
@@ -226,7 +232,9 @@ def test_checkpoint_interval_requires_positive_integer(value):
 
 @pytest.mark.parametrize("value", [None, 1])
 def test_checkpoint_interval_accepts_disabled_or_positive_value(value):
-    config = CheckpointConfig(save_checkpoint=value is not None, save_checkpoint_interval=value)
+    config = CheckpointConfig(
+        save_checkpoint=value is not None, save_checkpoint_interval=value
+    )
     assert config.save_checkpoint_interval == value
 
 
@@ -235,7 +243,9 @@ def test_checkpoint_interval_accepts_disabled_or_positive_value(value):
     [(False, None, False), (True, 2, False), (True, None, True), (True, 2, True)],
     ids=["disabled", "periodic", "final", "periodic-and-final"],
 )
-def test_checkpoint_accepts_consistent_save_policies(save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end):
+def test_checkpoint_accepts_consistent_save_policies(
+    save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end
+):
     config = CheckpointConfig(
         save_checkpoint=save_checkpoint,
         save_checkpoint_interval=save_checkpoint_interval,
@@ -250,9 +260,16 @@ def test_checkpoint_accepts_consistent_save_policies(save_checkpoint, save_check
 @pytest.mark.parametrize(
     ("save_checkpoint", "save_checkpoint_interval", "save_checkpoint_at_the_end"),
     [(False, 2, False), (False, None, True), (False, 2, True), (True, None, False)],
-    ids=["disabled-with-periodic", "disabled-with-final", "disabled-with-both", "enabled-without-trigger"],
+    ids=[
+        "disabled-with-periodic",
+        "disabled-with-final",
+        "disabled-with-both",
+        "enabled-without-trigger",
+    ],
 )
-def test_checkpoint_rejects_inconsistent_save_policies(save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end):
+def test_checkpoint_rejects_inconsistent_save_policies(
+    save_checkpoint, save_checkpoint_interval, save_checkpoint_at_the_end
+):
     with pytest.raises(ConfigError):
         CheckpointConfig(
             save_checkpoint=save_checkpoint,
@@ -264,7 +281,11 @@ def test_checkpoint_rejects_inconsistent_save_policies(save_checkpoint, save_che
 @pytest.mark.parametrize("field", ["save_checkpoint", "save_checkpoint_at_the_end"])
 @pytest.mark.parametrize("value", [0, 1, "false", None])
 def test_checkpoint_flags_require_booleans(field, value):
-    settings = {"save_checkpoint": True, "save_checkpoint_at_the_end": True, field: value}
+    settings = {
+        "save_checkpoint": True,
+        "save_checkpoint_at_the_end": True,
+        field: value,
+    }
     with pytest.raises(TypeError, match=field):
         CheckpointConfig(**settings)
 
@@ -293,7 +314,10 @@ def test_checkpoint_rejects_invalid_paths(field, path):
         CheckpointConfig(**{field: path})
 
 
-@pytest.mark.parametrize("field", ["model", "data", "optimizer", "loop", "lr_scheduler", "runtime", "checkpoint"])
+@pytest.mark.parametrize(
+    "field",
+    ["model", "data", "optimizer", "loop", "lr_scheduler", "runtime", "checkpoint"],
+)
 def test_experiment_requires_config_objects_for_components(experiment, field):
     with pytest.raises(TypeError, match=field):
         evolve(experiment, **{field: {}})

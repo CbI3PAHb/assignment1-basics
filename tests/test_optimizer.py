@@ -4,9 +4,9 @@ import torch
 from .adapters import get_adamw_cls, run_get_lr_cosine_schedule
 
 
-def _optimize(opt_class) -> torch.Tensor:
-    torch.manual_seed(42)
-    model = torch.nn.Linear(3, 2, bias=False)
+def _optimize(opt_class, device) -> torch.Tensor:
+    torch.random.default_generator.manual_seed(42)
+    model = torch.nn.Linear(3, 2, bias=False).to(device)
     opt = opt_class(
         model.parameters(),
         lr=1e-3,
@@ -17,16 +17,16 @@ def _optimize(opt_class) -> torch.Tensor:
     # Use 1000 optimization steps for testing
     for _ in range(1000):
         opt.zero_grad()
-        x = torch.rand(model.in_features)
+        x = torch.rand(model.in_features).to(device)
         y_hat = model(x)
-        y = torch.tensor([x[0] + x[1], -x[2]])
+        y = torch.stack([x[0] + x[1], -x[2]])
         loss = ((y - y_hat) ** 2).sum()
         loss.backward()
         opt.step()
     return model.weight.detach()
 
 
-def test_adamw(numpy_snapshot):
+def test_adamw(numpy_snapshot, execution_device):
     """
     Our reference implementation yields slightly different results than the
     PyTorch AdamW, since there are a couple different ways that you can apply
@@ -35,8 +35,9 @@ def test_adamw(numpy_snapshot):
     _either_ our reference implementation's expected results or those from the PyTorch AdamW.
     """
     # expected_weights = torch.load(FIXTURES_PATH / "adamw_expected_params.pt")
-    pytorch_weights = _optimize(torch.optim.AdamW)
-    actual_weights = _optimize(get_adamw_cls())
+    pytorch_weights = _optimize(torch.optim.AdamW, execution_device)
+    actual_weights = _optimize(get_adamw_cls(), execution_device)
+    assert actual_weights.device == pytorch_weights.device == execution_device
 
     # Might need to exit early if the weights match pytorch, since that should also be valid
     matches_pytorch = torch.allclose(actual_weights, pytorch_weights, atol=1e-4)

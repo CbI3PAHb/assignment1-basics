@@ -6,8 +6,8 @@ from attrs import evolve
 from attrs.exceptions import FrozenInstanceError
 from cattrs.errors import ClassValidationError, ForbiddenExtraKeysError
 
-from cs336_basics.config.training import EvaluationConfig, EvaluationConfigError
 from cs336_basics.config.io import dump_experiment, load_experiment
+from cs336_basics.config.training import EvaluationConfig, EvaluationConfigError
 
 from ._helpers import exception_leaves
 
@@ -15,6 +15,7 @@ from ._helpers import exception_leaves
 @pytest.fixture(params=["python", "yaml"])
 def build_evaluation(request, tmp_path, raw_experiment):
     """Check the same rules for direct construction and the public YAML loader."""
+
     def build(options):
         if request.param == "python":
             return EvaluationConfig(**options)
@@ -26,11 +27,14 @@ def build_evaluation(request, tmp_path, raw_experiment):
     return build
 
 
-@pytest.mark.parametrize("options", [
-    {},
-    {"do_eval": False},
-    {"do_eval": False, "eval_interval": None, "num_batches": None},
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"do_eval": False},
+        {"do_eval": False, "eval_interval": None, "num_batches": None},
+    ],
+)
 def test_disabled_evaluation_accepts_empty_settings(build_evaluation, options):
     config = build_evaluation(options)
 
@@ -40,8 +44,12 @@ def test_disabled_evaluation_accepts_empty_settings(build_evaluation, options):
 
 
 @pytest.mark.parametrize("eval_interval, num_batches", [(1, 1), (10, 20), (1000, 100)])
-def test_enabled_evaluation_preserves_positive_settings(build_evaluation, eval_interval, num_batches):
-    config = build_evaluation({"do_eval": True, "eval_interval": eval_interval, "num_batches": num_batches})
+def test_enabled_evaluation_preserves_positive_settings(
+    build_evaluation, eval_interval, num_batches
+):
+    config = build_evaluation(
+        {"do_eval": True, "eval_interval": eval_interval, "num_batches": num_batches}
+    )
 
     assert config.do_eval is True
     assert config.eval_interval == eval_interval
@@ -52,7 +60,9 @@ def test_enabled_evaluation_preserves_positive_settings(build_evaluation, eval_i
 
 @pytest.mark.parametrize("field", ["eval_interval", "num_batches"])
 @pytest.mark.parametrize("explicit_null", [False, True], ids=["omitted", "null"])
-def test_enabled_evaluation_requires_both_settings(build_evaluation, field, explicit_null):
+def test_enabled_evaluation_requires_both_settings(
+    build_evaluation, field, explicit_null
+):
     options = {"do_eval": True, "eval_interval": 10, "num_batches": 20}
     if explicit_null:
         options[field] = None
@@ -68,28 +78,39 @@ def test_enabled_evaluation_requires_both_settings(build_evaluation, field, expl
     )
 
 
-@pytest.mark.parametrize("settings", [
-    {"eval_interval": 10},
-    {"num_batches": 20},
-    {"eval_interval": 10, "num_batches": 20},
-])
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"eval_interval": 10},
+        {"num_batches": 20},
+        {"eval_interval": 10, "num_batches": 20},
+    ],
+)
 def test_disabled_evaluation_rejects_active_settings(build_evaluation, settings):
     with pytest.raises((EvaluationConfigError, ClassValidationError)) as caught:
         build_evaluation({"do_eval": False, **settings})
 
-    assert any(isinstance(error, EvaluationConfigError) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, EvaluationConfigError)
+        for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize("field", ["eval_interval", "num_batches"])
 @pytest.mark.parametrize("value", [0, -1, 1.0, 1.5, "2", True, False])
-def test_evaluation_requires_positive_integers_without_coercion(build_evaluation, field, value):
+def test_evaluation_requires_positive_integers_without_coercion(
+    build_evaluation, field, value
+):
     options = {"do_eval": True, "eval_interval": 10, "num_batches": 20}
     options[field] = value
 
     with pytest.raises((TypeError, ValueError, ClassValidationError)) as caught:
         build_evaluation(options)
 
-    assert any(isinstance(error, (TypeError, ValueError)) for error in exception_leaves(caught.value))
+    assert any(
+        isinstance(error, (TypeError, ValueError))
+        for error in exception_leaves(caught.value)
+    )
 
 
 @pytest.mark.parametrize("value", [0, 1, "true", "false", None])
@@ -121,7 +142,9 @@ def test_omitted_evaluation_section_defaults_to_disabled(tmp_path, raw_experimen
     assert load_experiment(path).evaluation == EvaluationConfig()
 
 
-def test_enabled_evaluation_survives_yaml_round_trip_without_creating_artifacts(tmp_path, raw_experiment):
+def test_enabled_evaluation_survives_yaml_round_trip_without_creating_artifacts(
+    tmp_path, raw_experiment
+):
     settings = {"do_eval": True, "eval_interval": 10, "num_batches": 20}
     raw_experiment["evaluation"] = settings
     path = tmp_path / "experiment.yaml"

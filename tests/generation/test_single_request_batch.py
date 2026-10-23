@@ -22,6 +22,7 @@ class ScriptedLM(nn.Module):
         selected_tokens: tuple[int, ...],
     ) -> None:
         super().__init__()
+        self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
         assert len(expected_prefixes) == len(selected_tokens)
         self.expected_prefixes = expected_prefixes
         self.selected_tokens = selected_tokens
@@ -33,14 +34,14 @@ class ScriptedLM(nn.Module):
         expected = self.expected_prefixes[step]
         assert token_ids.shape == (1, len(expected))
         assert token_ids.dtype == torch.int64
-        assert token_ids.device.type == "cpu"
+        assert token_ids.device == self._device_anchor.device
         assert token_ids.tolist() == [list(expected)]
         assert not self.training, "Generation must use evaluation behavior"
         assert not torch.is_grad_enabled(), "Generation must disable autograd"
         self.seen_prefixes.append(tuple(token_ids[0].tolist()))
 
         logits = torch.full(
-            (1, len(expected), 32), -20.0, dtype=torch.float32, device="cpu"
+            (1, len(expected), 32), -20.0, dtype=torch.float32, device=token_ids.device
         )
         # Earlier positions deliberately outrank every last-position score.
         logits[:, :-1, 31] = 1000.0
@@ -85,7 +86,9 @@ def assert_generation_case(
     assert prompt == original_prompt, "The caller retained a separate prompt copy"
 
 
-def test_greedy_uses_last_position_and_recomputes_prefix_until_token_budget(engine_factory):
+def test_greedy_uses_last_position_and_recomputes_prefix_until_token_budget(
+    engine_factory,
+):
     assert_generation_case(
         engine_factory=engine_factory,
         selected_tokens=(9, 5, 6),
@@ -131,7 +134,9 @@ def test_selected_eos_is_retained_and_prevents_another_forward(
 
 
 @pytest.mark.parametrize("eos_id", [0, 2])
-def test_prompt_ending_in_eos_returns_unchanged_without_a_forward(eos_id, engine_factory):
+def test_prompt_ending_in_eos_returns_unchanged_without_a_forward(
+    eos_id, cpu_engine_factory
+):
     prompt = [11, eos_id]
     original_prompt = prompt.copy()
     model = ScriptedLM(expected_prefixes=(), selected_tokens=())
@@ -141,7 +146,7 @@ def test_prompt_ending_in_eos_returns_unchanged_without_a_forward(eos_id, engine
     )
 
     results = batched_generate(
-        engine=engine_factory(model),
+        engine=cpu_engine_factory(model),
         requests=[request],
         context_capacity=16,
     )
@@ -183,7 +188,9 @@ def test_eos_wins_when_selected_on_the_last_allowed_token(engine_factory):
     )
 
 
-def test_capacity_returns_shorter_continuation_instead_of_rejecting_request(engine_factory):
+def test_capacity_returns_shorter_continuation_instead_of_rejecting_request(
+    engine_factory,
+):
     assert_generation_case(
         engine_factory=engine_factory,
         selected_tokens=(9, 5),
@@ -230,11 +237,11 @@ def test_smaller_new_token_budget_stops_before_context_capacity_is_full(engine_f
     ],
 )
 def test_invalid_request_raises_value_error_without_a_forward(
-    prompt_tokens, context_capacity, max_new_tokens, engine_factory
+    prompt_tokens, context_capacity, max_new_tokens, cpu_engine_factory
 ):
     original_prompt = prompt_tokens.copy()
     model = ScriptedLM(expected_prefixes=(), selected_tokens=())
-    engine = engine_factory(model)
+    engine = cpu_engine_factory(model)
 
     with pytest.raises(ValueError):
         # Validation may occur in request/policy construction or batch admission.
