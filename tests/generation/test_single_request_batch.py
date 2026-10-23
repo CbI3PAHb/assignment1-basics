@@ -1,13 +1,16 @@
-"""Behavioral contract for one uncached greedy CPU request."""
+"""Single-request behavior through the canonical static-batch API."""
 
 import pytest
 import torch
 from torch import nn
 
+from cs336_basics.config.inference import SamplingParams
 from cs336_basics.generation import (
     FinishReason,
     GenerationResult,
-    generate,
+    Req,
+    Sampler,
+    batched_generate,
 )
 
 
@@ -58,21 +61,30 @@ def assert_generation_case(
     prompt = [11, 24, 7]
     original_prompt = prompt.copy()
     model = ScriptedLM(expected_prefixes, selected_tokens)
+    request = Req(
+        token_ids=prompt.copy(),
+        sampling_params=SamplingParams(
+            max_new_tokens=max_new_tokens, eos_token_id=eos_id
+        ),
+    )
 
-    result = generate(
+    results = batched_generate(
         model=model,
-        token_ids=prompt,
-        eos_id=eos_id,
-        max_new_tokens=max_new_tokens,
+        sampler=Sampler(vocab_size=32, device="cpu"),
+        requests=[request],
         context_capacity=context_capacity,
         device="cpu",
     )
+    assert len(results) == 1
+    result = results[0]
 
     assert isinstance(result, GenerationResult)
     assert result.token_ids == (*original_prompt, *selected_tokens)
     assert result.finish_reason is finish_reason
     assert model.seen_prefixes == list(expected_prefixes)
-    assert prompt == original_prompt, "Generation must not mutate the caller's prompt"
+    assert tuple(request.token_ids) == result.token_ids
+    assert request.generated_tokens_count == len(selected_tokens)
+    assert prompt == original_prompt, "The caller retained a separate prompt copy"
 
 
 def test_greedy_uses_last_position_and_recomputes_prefix_until_token_budget():
@@ -123,21 +135,27 @@ def test_prompt_ending_in_eos_returns_unchanged_without_a_forward(eos_id):
     prompt = [11, eos_id]
     original_prompt = prompt.copy()
     model = ScriptedLM(expected_prefixes=(), selected_tokens=())
+    request = Req(
+        token_ids=prompt.copy(),
+        sampling_params=SamplingParams(max_new_tokens=3, eos_token_id=eos_id),
+    )
 
-    result = generate(
+    results = batched_generate(
         model=model,
-        token_ids=prompt,
-        eos_id=eos_id,
-        max_new_tokens=3,
+        sampler=Sampler(vocab_size=32, device="cpu"),
+        requests=[request],
         context_capacity=16,
         device="cpu",
     )
+    assert len(results) == 1
+    result = results[0]
 
     assert isinstance(result, GenerationResult)
     assert result.token_ids == tuple(original_prompt)
     assert result.finish_reason is FinishReason.EOS
     assert result.error is None
     assert model.seen_prefixes == []
+    assert tuple(request.token_ids) == tuple(original_prompt)
     assert prompt == original_prompt
 
 
@@ -215,11 +233,15 @@ def test_invalid_request_raises_value_error_without_a_forward(
     model = ScriptedLM(expected_prefixes=(), selected_tokens=())
 
     with pytest.raises(ValueError):
-        generate(
+        # Validation may occur in request/policy construction or batch admission.
+        request = Req(
+            token_ids=prompt_tokens.copy(),
+            sampling_params=SamplingParams(max_new_tokens=max_new_tokens),
+        )
+        batched_generate(
             model=model,
-            token_ids=prompt_tokens,
-            eos_id=None,
-            max_new_tokens=max_new_tokens,
+            sampler=Sampler(vocab_size=32, device="cpu"),
+            requests=[request],
             context_capacity=context_capacity,
             device="cpu",
         )

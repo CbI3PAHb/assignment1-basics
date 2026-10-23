@@ -7,7 +7,7 @@ from cs336_basics.checkpoint.checkpoint import load_model_weights
 from cs336_basics.config.io import load_config
 from cs336_basics.config.tokenizer import TokenizerConfig
 from cs336_basics.config.training import ExperimentConfig
-from cs336_basics.generation import GenerationResult, generate
+from cs336_basics.generation import GenerationResult, Sampler, generate
 from cs336_basics.tokenization.build import build_tokenizer
 from cs336_basics.transformers.build import build_model
 
@@ -35,6 +35,8 @@ def main() -> None:
     model = model.to(device)
     model.eval()
 
+    sampler = Sampler(device=device, vocab_size=experiment_config.model.vocab_size)
+
     token_ids = tokenizer.encode(prompt)
 
     print("generation process starts")
@@ -43,6 +45,7 @@ def main() -> None:
     with torch.inference_mode():
         generation_result: GenerationResult = generate(
             model=model,
+            sampler=sampler,
             token_ids=token_ids,
             eos_id=eos_id,
             max_new_tokens=max_new_tokens,

@@ -43,7 +43,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if args.command == "inference" and args.action == "run":
         parser.error(
             "legacy inference execution was removed; "
-            "use python -m cs336_basics.generation.demo"
+            "use python -m cs336_basics.generation.python -m cs336_basics.generation.one_request_generate_demo"
         )
     if len(args.config) != 1:
         parser.error("--config must be specified exactly once")

@@ -2,6 +2,7 @@
 
 from collections import Counter
 
+import attrs
 import pytest
 import torch
 from torch import nn
@@ -10,8 +11,8 @@ from cs336_basics.generation import (
     FinishReason,
     GenerationResult,
     Req,
+    Sampler,
     batched_generate,
-    generate,
 )
 from cs336_basics.transformers.transformers import TransformerLM
 
@@ -70,12 +71,20 @@ def run_batch(
     eos_id: int | None = None,
     max_new_tokens: int = 3,
     context_capacity: int = 16,
+    sampler: Sampler | None = None,
 ) -> list[GenerationResult]:
+    for request in requests:
+        request.sampling_params = attrs.evolve(
+            request.sampling_params,
+            max_new_tokens=max_new_tokens,
+            eos_token_id=eos_id,
+        )
     results = batched_generate(
         model=model,
+        sampler=(
+            sampler if sampler is not None else Sampler(vocab_size=32, device="cpu")
+        ),
         requests=requests,
-        eos_id=eos_id,
-        max_new_tokens=max_new_tokens,
         context_capacity=context_capacity,
         device="cpu",
         pad_id=0,
@@ -214,22 +223,16 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
             rope_theta=10000.0,
         ).cpu()
 
+    sampler = Sampler(vocab_size=32, device="cpu")
     prompts = ([11, 24, 7], [4], [8, 6])
     reference = [
-        generate(
-            model=model,
-            token_ids=prompt.copy(),
-            eos_id=None,
-            max_new_tokens=3,
-            context_capacity=16,
-            device="cpu",
-        )
+        run_batch(model, [Req(token_ids=prompt.copy())], sampler=sampler)[0]
         for prompt in prompts
     ]
 
     for order in ((0, 1, 2, 0), (2, 0, 1, 0)):
         requests = [Req(token_ids=prompts[index].copy()) for index in order]
-        results = run_batch(model, requests)
+        results = run_batch(model, requests, sampler=sampler)
         assert_finished_results(
             requests,
             results,
@@ -240,14 +243,15 @@ def test_tiny_causal_model_matches_independent_runs_after_reordering_and_duplica
         )
 
 
-def test_shared_forward_failure_propagates_to_the_caller():
-    failure = RuntimeError("Injected shared forward failure")
+@pytest.mark.parametrize("failure_type", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_shared_forward_failure_propagates_to_the_caller(failure_type):
+    failure = failure_type("Injected shared forward failure")
 
     class FailingLM(nn.Module):
         def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
             raise failure
 
-    with pytest.raises(RuntimeError, match="Injected shared forward failure") as caught:
+    with pytest.raises(failure_type, match="Injected shared forward failure") as caught:
         run_batch(
             FailingLM(),
             [Req(token_ids=[11, 24, 7]), Req(token_ids=[4])],

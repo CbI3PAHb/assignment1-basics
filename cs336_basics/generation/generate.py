@@ -3,31 +3,29 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from .requests import Req
+from .requests import Batch, Req
 from .results import FinishReason, GenerationResult
+from .sampling import BatchSamplingArgs, Sampler
 
 
 def generate(
     *,
     model: nn.Module,
-    token_ids: list[int],
-    eos_id: Optional[int],
-    max_new_tokens: int,
+    req: Req,
+    sampler: Sampler,
     context_capacity: int,
     device: torch.device | str = "cpu",
 ) -> GenerationResult:
-    if not token_ids:
+
+    if context_capacity <= 0 or req.sampling_params.max_new_tokens <= 0:
         raise ValueError()
-    if context_capacity <= 0 or max_new_tokens <= 0:
-        raise ValueError()
-    if len(token_ids) >= context_capacity:
+    if len(req.token_ids) >= context_capacity:
         raise ValueError()
 
     return batched_generate(
         model=model,
-        requests=[Req(token_ids=token_ids.copy())],
-        eos_id=eos_id,
-        max_new_tokens=max_new_tokens,
+        sampler=sampler,
+        requests=[req],
         context_capacity=context_capacity,
         device=device,
     )[0]
@@ -37,20 +35,23 @@ def batched_generate(
     *,
     model: nn.Module,
     requests: list[Req],
-    eos_id: Optional[int],
-    max_new_tokens: int,
+    sampler: Sampler,
     context_capacity: int,
     device: torch.device | str = "cpu",
     pad_id: int = 0,
 ) -> list[GenerationResult]:
+    if context_capacity <= 0:
+        raise ValueError()
+    if any(req.prompt_tokens_count >= context_capacity for req in requests):
+        raise ValueError()
 
     model.eval()
 
     while True:
         for req in requests:
-            if req.last_token() == eos_id:
+            if req.last_token() == req.sampling_params.eos_token_id:
                 req.finish(FinishReason.EOS)
-            elif req.generated_tokens_count >= max_new_tokens:
+            elif req.generated_tokens_count >= req.sampling_params.max_new_tokens:
                 req.finish(FinishReason.MAX_NEW_TOKENS)
             elif req.total_tokens_count >= context_capacity:
                 req.finish(FinishReason.MAX_CONTEXT_CAPACITY)
@@ -60,9 +61,9 @@ def batched_generate(
             for req in requests
             if (
                 not req.finished
-                and req.generated_tokens_count < max_new_tokens
+                and req.generated_tokens_count < req.sampling_params.max_new_tokens
                 and req.total_tokens_count < context_capacity
-                and req.last_token() != eos_id
+                and req.last_token() != req.sampling_params.eos_token_id
             )
         ]
 
@@ -72,8 +73,13 @@ def batched_generate(
         if not requests_to_generate:
             break
 
+        curr_batch = Batch(reqs=requests_to_generate)
+        sampling_params: BatchSamplingArgs = sampler.prepare_batch_sampling_args(
+            batch=curr_batch
+        )
+
         max_seq_len = max(req.total_tokens_count for req in requests_to_generate)
-        batch = torch.stack(
+        padded_batch = torch.stack(
             [
                 torch.tensor(
                     req.token_ids + [pad_id] * (max_seq_len - req.total_tokens_count)
@@ -82,9 +88,9 @@ def batched_generate(
             ]
         )
 
-        batch = batch.to(device)
+        padded_batch = padded_batch.to(device)
         with torch.inference_mode():
-            logits = model.forward(batch) # [batch_size, seq_len, vocab_size]
+            logits = model.forward(padded_batch)  # [batch_size, seq_len, vocab_size]
 
         batch_indices = torch.arange(
             len(requests_to_generate),
@@ -97,8 +103,12 @@ def batched_generate(
             device=device,
         )
 
-        last_token_logits = logits[batch_indices, last_token_positions, :]  # [batch, vocab]
-        generated_tokens = torch.argmax(last_token_logits, dim=-1)  # [batch]
+        last_token_logits = logits[
+            batch_indices, last_token_positions, :
+        ]  # [batch, vocab]
+        generated_tokens = sampler.sample_impl(
+            last_token_logits, sampling_params
+        )  # [batch]
         generated_token_ids = generated_tokens.tolist()
 
         for req, token_id in zip(

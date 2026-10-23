@@ -7,7 +7,7 @@ are internal helpers; training.py checks compatibility between training componen
 from ._errors import ConfigError
 from .execution import LoggingConfig, RuntimeConfig
 from .inference import (
-    InferenceEngineConfig,
+    EngineConfig,
     InferenceMapperConfig,
     InferenceServerConfig,
     LLMConfig,
@@ -48,7 +48,7 @@ __all__ = [
     "EvaluationConfig",
     "TrainerConfig",
     "SamplingParams",
-    "InferenceEngineConfig",
+    "EngineConfig",
     "InferenceMapperConfig",
     "InferenceServerConfig",
     "TokenizerConfig",

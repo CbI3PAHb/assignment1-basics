@@ -6,8 +6,6 @@ The package provides uncached generation with full-prefix recomputation:
   the caller's token list.
 - `batched_generate()` handles a static group of mutable `Req` objects, with
   right padding, independent stopping, and results in input order.
-- The sequential runner reuses loaded model/tokenizer objects and returns an
-  outcome for every prompt, including request errors.
 
 Public token-level API:
 
@@ -22,8 +20,7 @@ The modules follow these responsibilities:
 | `requests.py` | Mutable request tokens, progress, and lifecycle state. |
 | `results.py` | Immutable result snapshots and finish reasons. |
 | `generate.py` | The static-batch execution loop and single-request adapter. |
-| `offline_runner.py` | Sequential text requests and request error outcomes. |
-| `demo.py` | Local model/tokenizer loading and an executable example. |
+| `one_request_generate_demo.py` | Local model/tokenizer loading and an executable example. |
 | `__init__.py` | Public imports. |
 
 Run the focused CPU tests from the repository root:
@@ -41,7 +38,8 @@ The real-model demo uses these local artifacts, resolved from the repository roo
 With matching artifacts available:
 
 ```bash
-python -m cs336_basics.generation.demo
+python -m cs336_basics.generation.one_request_generate_demo
+python -m cs336_basics.generation.one_batch_generate_demo
 ```
 
 Artifact files are ignored by Git. Adjust the demo's settings for a different

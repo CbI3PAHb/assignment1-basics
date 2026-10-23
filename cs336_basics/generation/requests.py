@@ -4,6 +4,7 @@ from uuid import uuid4
 import attrs
 
 from cs336_basics.config._validation import _TOKEN_LIST
+from cs336_basics.config.inference import SamplingParams
 
 from .results import FinishReason
 
@@ -24,6 +25,10 @@ class Req:
     prompt_tokens_count: int = attrs.field(init=False)
     status: ReqStatus = ReqStatus.WAITING
     finish_reason: FinishReason | None = None
+    sampling_params: SamplingParams = attrs.field(
+        factory=SamplingParams,
+        validator=attrs.validators.instance_of(SamplingParams),
+    )
 
     def __attrs_post_init__(self) -> None:
         self.prompt_tokens_count = len(self.token_ids)
@@ -52,3 +57,8 @@ class Req:
 
     def start(self) -> None:
         self.status = ReqStatus.RUNNING
+
+
+@attrs.define(kw_only=True)
+class Batch:
+    reqs: list[Req]
