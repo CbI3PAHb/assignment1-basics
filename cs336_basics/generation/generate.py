@@ -47,7 +47,11 @@ def batched_generate(
             batch=curr_batch
         )
 
-        model_output: ModelOutput = engine.forward_batch(curr_batch, sampling_params)
+        model_output: ModelOutput = engine.forward_batch(
+            batch=curr_batch,
+            batch_sampling_args=sampling_params,
+            pad_id=pad_id,
+        )
         generated_token_ids = model_output.next_tokens_gpu.tolist()
 
         for req, token_id in zip(
@@ -67,7 +71,7 @@ def batched_generate(
         res = GenerationResult(
             token_ids=tuple(req.token_ids),
             finish_reason=reason,
-            # error=...,
+            # error=..., # TODO: handle errors
         )
         result.append(res)
 

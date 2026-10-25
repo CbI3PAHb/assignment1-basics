@@ -28,7 +28,20 @@ class WeightedBatchLM(nn.Module):
         self.steps = steps
         self.seen_batches: list[tuple[tuple[int, ...], ...]] = []
 
-    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+    ) -> torch.Tensor:
+        if token_positions is not None:
+            assert token_positions.dtype in (torch.int32, torch.int64)
+            assert token_positions.device == token_ids.device
+            assert token_positions.shape == token_ids.shape
+            expected_positions = torch.arange(
+                token_ids.shape[1], device=token_ids.device
+            ).expand_as(token_ids)
+            assert torch.equal(
+                token_positions, expected_positions
+            ), "Uncached positions must start at zero in every input row"
+        assert kv_caches is None, "This fixture checks uncached execution"
         index = len(self.seen_batches)
         assert index < len(self.steps), "Forward called after completion"
         step = self.steps[index]
@@ -298,7 +311,20 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
             self.register_buffer("_device_anchor", torch.empty(0), persistent=False)
             self.calls = 0
 
-        def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        def forward(
+            self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+        ) -> torch.Tensor:
+            if token_positions is not None:
+                assert token_positions.dtype in (torch.int32, torch.int64)
+                assert token_positions.device == token_ids.device
+                assert token_positions.shape == token_ids.shape
+                expected_positions = torch.arange(
+                    token_ids.shape[1], device=token_ids.device
+                ).expand_as(token_ids)
+                assert torch.equal(
+                    token_positions, expected_positions
+                ), "Uncached positions must start at zero in every input row"
+            assert kv_caches is None, "This fixture checks uncached execution"
             self.calls += 1
             assert self.calls == 1, "Forward called after completion"
             assert token_ids.shape == (1, 1)

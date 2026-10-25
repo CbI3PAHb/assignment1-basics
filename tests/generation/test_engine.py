@@ -96,7 +96,20 @@ class WeightedLM(nn.Module):
         self.steps = steps
         self.seen: list[tuple[tuple[int, ...], ...]] = []
 
-    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+    ) -> torch.Tensor:
+        if token_positions is not None:
+            assert token_positions.dtype in (torch.int32, torch.int64)
+            assert token_positions.device == token_ids.device
+            assert token_positions.shape == token_ids.shape
+            expected_positions = torch.arange(
+                token_ids.shape[1], device=token_ids.device
+            ).expand_as(token_ids)
+            assert torch.equal(
+                token_positions, expected_positions
+            ), "Uncached positions must start at zero in every input row"
+        assert kv_caches is None, "This fixture checks uncached execution"
         assert not self.training, "Engine must configure evaluation behavior"
         assert not torch.is_grad_enabled(), "Engine must disable autograd"
         index = len(self.seen)
@@ -150,7 +163,9 @@ def test_engine_initializes_once_and_reuses_resources_without_updating_requests(
         before = request_snapshot(batch)
         args = sampler.prepare_batch_sampling_args(batch)
         assert_output(
-            engine.forward_batch(batch, args), expected, device=execution_device
+            engine.forward_batch(batch=batch, batch_sampling_args=args),
+            expected,
+            device=execution_device,
         )
         assert request_snapshot(batch) == before
         assert engine.model is model
@@ -205,7 +220,11 @@ def test_engine_uses_supplied_mixed_sampling_args_and_valid_last_positions(
     monkeypatch.setattr(torch, "multinomial", draw)
     before = request_snapshot(batch)
     args = engine.sampler.prepare_batch_sampling_args(batch)
-    assert_output(engine.forward_batch(batch, args), [8, 7], device=execution_device)
+    assert_output(
+        engine.forward_batch(batch=batch, batch_sampling_args=args),
+        [8, 7],
+        device=execution_device,
+    )
     expected_probs = torch.tensor([9 / 25, 16 / 25], device=execution_device)
     assert any(
         row[row > 0].shape == expected_probs.shape
@@ -231,8 +250,12 @@ class RecordingTransformerLM(TransformerLM):
         )
         self.recorded: list[tuple[torch.Tensor, torch.Tensor]] = []
 
-    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
-        logits = super().forward(token_ids)
+    def forward(
+        self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+    ) -> torch.Tensor:
+        logits = super().forward(
+            token_ids, token_positions=token_positions, kv_caches=kv_caches
+        )
         self.recorded.append((token_ids.detach().clone(), logits.detach().clone()))
         return logits
 
@@ -262,7 +285,7 @@ def test_engine_right_padding_preserves_real_valid_logits_with_different_fillers
     for pad_id in (0, 31):
         args = engine.sampler.prepare_batch_sampling_args(batch)
         assert_output(
-            engine.forward_batch(batch, args, pad_id=pad_id),
+            engine.forward_batch(batch=batch, batch_sampling_args=args, pad_id=pad_id),
             expected_tokens,
             device=execution_device,
         )
@@ -300,7 +323,20 @@ def test_engine_propagates_shared_forward_failures_without_updating_requests(
     execution_device,
 ) -> None:
     class FailingLM(nn.Module):
-        def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        def forward(
+            self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+        ) -> torch.Tensor:
+            if token_positions is not None:
+                assert token_positions.dtype in (torch.int32, torch.int64)
+                assert token_positions.device == token_ids.device
+                assert token_positions.shape == token_ids.shape
+                expected_positions = torch.arange(
+                    token_ids.shape[1], device=token_ids.device
+                ).expand_as(token_ids)
+                assert torch.equal(
+                    token_positions, expected_positions
+                ), "Uncached positions must start at zero in every input row"
+            assert kv_caches is None, "This fixture checks uncached execution"
             assert not torch.is_grad_enabled()
             raise failure
 
@@ -312,6 +348,6 @@ def test_engine_propagates_shared_forward_failures_without_updating_requests(
     before = request_snapshot(batch)
     args = engine.sampler.prepare_batch_sampling_args(batch)
     with pytest.raises(type(failure)) as caught:
-        engine.forward_batch(batch, args)
+        engine.forward_batch(batch=batch, batch_sampling_args=args)
     assert caught.value is failure
     assert request_snapshot(batch) == before

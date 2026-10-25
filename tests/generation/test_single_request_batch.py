@@ -28,7 +28,20 @@ class ScriptedLM(nn.Module):
         self.selected_tokens = selected_tokens
         self.seen_prefixes: list[tuple[int, ...]] = []
 
-    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+    ) -> torch.Tensor:
+        if token_positions is not None:
+            assert token_positions.dtype in (torch.int32, torch.int64)
+            assert token_positions.device == token_ids.device
+            assert token_positions.shape == token_ids.shape
+            expected_positions = torch.arange(
+                token_ids.shape[1], device=token_ids.device
+            ).expand_as(token_ids)
+            assert torch.equal(
+                token_positions, expected_positions
+            ), "Uncached positions must start at zero in every input row"
+        assert kv_caches is None, "This fixture checks uncached execution"
         step = len(self.seen_prefixes)
         assert step < len(self.expected_prefixes), "Forward called after completion"
         expected = self.expected_prefixes[step]
