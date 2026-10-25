@@ -4,9 +4,13 @@ from pathlib import Path
 
 from cs336_basics.logging_setup import setup_logging
 
-from .config.inference import InferenceMapperConfig, InferenceServerConfig
-from .config.io import dump_config, load_config
-from .config.training import ExperimentConfig
+from .config import (
+    ExperimentConfig,
+    InferenceMapperConfig,
+    InferenceServerConfig,
+    dump_config,
+    load_config,
+)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -43,7 +47,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if args.command == "inference" and args.action == "run":
         parser.error(
             "legacy inference execution was removed; "
-            "use python -m cs336_basics.generation.python -m cs336_basics.generation.one_request_generate_demo"
+            "uv run python -m cs336_basics.generation.one_batch_generate_demo"
         )
     if len(args.config) != 1:
         parser.error("--config must be specified exactly once")

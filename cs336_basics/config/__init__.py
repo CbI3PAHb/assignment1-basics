@@ -14,6 +14,7 @@ from .inference import (
     SamplingParams,
     SchedulerConfig,
 )
+from .io import dump_config, load_config
 from .model import DEFAULT_ROPE_THETA, ModelConfig
 from .tokenizer import TokenizerConfig
 from .training import (
@@ -52,4 +53,6 @@ __all__ = [
     "InferenceMapperConfig",
     "InferenceServerConfig",
     "TokenizerConfig",
+    "load_config",
+    "dump_config",
 ]

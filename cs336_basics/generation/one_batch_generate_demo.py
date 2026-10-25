@@ -5,14 +5,17 @@ import torch
 
 from cs336_basics.checkpoint.checkpoint import load_model_weights
 from cs336_basics.config import (
+    EngineConfig,
     ExperimentConfig,
     SamplingParams,
     TokenizerConfig,
     load_config,
 )
-from cs336_basics.generation import GenerationResult, Req, Sampler, batched_generate
+from cs336_basics.generation import GenerationResult, Req, batched_generate
 from cs336_basics.tokenization.build import build_tokenizer
 from cs336_basics.transformers.build import build_model
+
+from .engine import Engine
 
 
 def main() -> None:
@@ -61,12 +64,12 @@ def main() -> None:
     tokenizer_config = TokenizerConfig(path=tokenizer_path)
     tokenizer = build_tokenizer(tokenizer_config)
 
-    print(f"Loading model...")
+    # print(f"Loading model...")
     experiment_config = load_config(checkpoint_config_path, ExperimentConfig)
-    model = build_model(experiment_config.model)
-    load_model_weights(src=checkpoint_path, model=model)
-    model = model.to(device)
-    model.eval()
+    # model = build_model(experiment_config.model)
+    # load_model_weights(src=checkpoint_path, model=model)
+    # model = model.to(device)
+    # model.eval()
 
     requests = []
 
@@ -77,18 +80,21 @@ def main() -> None:
         )
         requests.append(request)
 
-    sampler = Sampler(device=device, vocab_size=experiment_config.model.vocab_size)
-
     print("generation process starts")
     start_time = time.time()
 
+    engine_config = EngineConfig(
+        model=experiment_config.model,
+        checkpoint=checkpoint_path,
+        runtime=experiment_config.runtime,
+    )
+    engine = Engine(engine_config)
+
     with torch.inference_mode():
         generation_results: list[GenerationResult] = batched_generate(
-            model=model,
+            engine=engine,
             requests=requests,
-            sampler=sampler,
             context_capacity=context_capacity,
-            device=device,
         )
 
     end_time = time.time()
