@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "pre-commit: uv must be available on PATH; commit blocked." >&2
+    exit 1
+fi
+
+exec uv tool run --from pre-commit==4.7.0 pre-commit run --hook-stage pre-commit

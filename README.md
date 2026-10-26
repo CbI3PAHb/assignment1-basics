@@ -48,6 +48,44 @@ uv run <python_file_path>
 ```
 and the environment will be automatically solved and activated when necessary.
 
+### Format staged files before committing
+
+Enable the versioned hook once per clone (already enabled in this checkout):
+
+```sh
+git config --local core.hooksPath .githooks
+```
+
+On `git commit`, `.githooks/pre-commit` runs pre-commit 4.7.0 through uv's isolated
+tool environment. The first run downloads that small tool environment. Keep `uv`
+on PATH, including when committing from an editor.
+
+The hooks in `.pre-commit-config.yaml` run `uv run --no-sync isort` followed by
+`uv run --no-sync black` on staged `.py` and `.pyi` files. Both use line length
+120, and isort uses its Black-compatible profile. `--no-sync` uses the existing
+project environment; install project dependencies with `uv sync` during setup.
+
+If either formatter changes a file or fails, the commit is blocked. Hooks never
+stage their changes. Review and stage the fixes yourself, then retry:
+
+```sh
+git add path/to/file.py
+git commit -m "Implement block manager"
+# If formatting changed the file, the commit above is blocked.
+git diff -- path/to/file.py
+git add path/to/file.py
+git commit -m "Implement block manager"
+```
+
+Partially staged files are checked using their staged contents: pre-commit
+temporarily saves unstaged changes and restores them afterward. If restoring
+those changes conflicts with formatting, it rolls back the formatter changes
+and blocks the commit; review the file and resolve staging manually.
+
+Git does not copy local configuration to new clones, so repeat the activation
+command there. See the [pre-commit documentation](https://pre-commit.com/#pre-commit)
+for staged-file handling.
+
 ### Run unit tests
 
 

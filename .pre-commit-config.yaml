@@ -1,0 +1,23 @@
+minimum_pre_commit_version: '4.4.0'
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: local
+    hooks:
+      - id: isort
+        name: isort (staged Python files)
+        language: unsupported
+        entry: uv run --no-sync isort
+        args: [--]
+        types: [file]
+        files: '\.pyi?$'
+        require_serial: true
+      - id: black
+        name: black (staged Python files)
+        language: unsupported
+        entry: uv run --no-sync black
+        args: [--]
+        types: [file]
+        files: '\.pyi?$'
+        require_serial: true
