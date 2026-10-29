@@ -1,17 +1,12 @@
-# Config classes
+# Configuration
 
-```
-cs336_basics/config/
-├── __init__.py       # public API
-│
-├── model.py          # ModelConfig
-├── execution.py      # RuntimeConfig, LoggingConfig
-├── tokenizer.py      # TokenizerConfig
-│
-├── training.py       # everything about train
-├── inference.py      # everything about inference 
-│
-├── io.py             # load_config / dump_config, YAML and cattrs
-├── _validation.py    # fields validation
-└── _errors.py        # ConfigError
-```
+- Public API: frozen, keyword-only classes and `load_config` / `dump_config` from `cs336_basics.config`.
+- Training YAML: `load_config(Path("experiment.yaml"), ExperimentConfig)`.
+- Serialization: `dump_config(config)` returns YAML including defaults.
+- Fields: [training.py](training.py), [model.py](model.py), [execution.py](execution.py), [tokenizer.py](tokenizer.py), [inference.py](inference.py).
+- Validation: rejects duplicate keys, unknown fields, invalid scalar types and incompatible settings.
+- Loading opens no datasets/checkpoints and creates no run directories; relative paths use the working directory.
+- Legacy inference mapper/server schemas: `config` available; `run` disabled.
+- `SchedulerConfig.max_running_requests` is legacy; the CPU Scheduler takes explicit limits.
+- TODO: paged-storage and packed-execution settings during integration.
+- See [training presets](../training/training_presets/README.md) and [configuration tests](../../tests/configs/README.md).

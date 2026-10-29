@@ -1,48 +1,22 @@
-# BPE trainer scaffold
+# BPE training
 
-This package is the replacement for the monolithic
-`cs336_basics/tokenization/train_bpe.py`. The old module remains active until
-this scaffold is implemented and the imports are switched deliberately.
+- Active implementation used by [assignment adapters](../../../tests/adapters.py).
+- [trainer.py](trainer.py): pair counts/merges; brute-force selection, then heap selection.
+- [pretokenization.py](pretokenization.py): special-token boundaries, chunks, serial/multiprocess counts.
+- [cli.py](cli.py): arguments, stream logging, atomic pickle output.
+- [__main__.py](__main__.py): `uv run python -m cs336_basics.tokenization.bpe`.
 
-## Module boundaries
+API:
 
-```text
-python -m ...tokenization.bpe
-          |
-          v
-        cli.py              argparse, logging, artifact output
-          |
-          v
-     trainer.train_bpe()    public assignment-compatible facade
-          |
-          +--> pretokenization.count_pretokens()
-          |
-          +--> BPETrainer.train()
-```
+- `train_bpe(input_path, vocab_size, special_tokens, *, chunk_size=1048576, n_process=4, heap_after=300)`
+  returns `(vocabulary, merges)`.
+- Requires at least one nonempty unique special token, positive chunk/process counts,
+  and vocabulary capacity for 256 bytes plus special tokens.
+- `heap_after=0`: heap selection from the first merge.
 
-Do not introduce a generic `utils.py`: put functionality in the module that
-owns it.
+See [tokenization usage](../README.md) for CLI examples and stale shell helpers.
+Focused assignment/regression checks, from the repository root:
 
-## Suggested implementation order
-
-1. `_validate_training_arguments()`
-2. `calculate_num_chunks()` and empty-file behavior
-3. `_count_pretokens_in_chunk()` without multiprocessing
-4. `count_pretokens()` serial path
-5. `BPETrainer` using brute-force pair selection
-6. make the regression tests pass in brute-force mode
-7. add safe chunk boundaries and multiprocessing
-8. add the heap optimization and prove it matches brute force
-9. implement atomic artifact saving and CLI logging
-
-During development, keep the existing adapter pointed at the old module. Test
-the scaffold directly in focused tests. Switch the adapter and shell scripts
-only after the Stanford tests and all regression tests pass.
-
-## Test command after switching
-
-```bash
-uv run pytest -q \
-  tests/tokenization/test_train_bpe.py \
-  tests/tokenization/test_train_bpe_regressions.py
+```sh
+uv run pytest tests/tokenization/test_train_bpe.py tests/tokenization/test_train_bpe_regressions.py -q
 ```

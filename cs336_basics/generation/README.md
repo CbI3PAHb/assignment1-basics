@@ -1,39 +1,30 @@
 # Generation
 
-Uncached autoregressive generation with a reusable model and sampler.
+- [sampling.py](sampling.py): greedy, temperature, top-k/top-p; preparation still accepts `Batch`.
+- [requests.py](requests.py), [results.py](results.py): histories, computed-token progress and lifecycle.
+- [BlockManager](kv_cache/block_manager.py): CPU credits, request block tables, lazy block allocation/release; no tensors.
+- [Scheduler](scheduler.py): running-first/FIFO admission, token/chunk limits, mixed prefill/decode plans,
+  result commits, cancellation and abort. GPU driver is unfinished.
+- [engine.py](engine.py), [generate.py](generate.py): obsolete dense serving path awaiting replacement.
+  Known failure: `batched_generate` calls the now-property `Req.last_token()`.
 
-- Static batches with different prompt lengths and independent stopping.
-- Per-request greedy, temperature, top-k and top-p sampling.
-- EOS, output-budget and context-capacity limits; results preserve input order.
-- Results contain the full token sequence and a finish reason.
+CPU API:
 
-| File | Purpose |
-| --- | --- |
-| `engine.py` | Model setup, batch padding, forward pass and sampling. |
-| `sampling.py` | Batch sampling arguments and token selection. |
-| `requests.py` | Request tokens, sampling policy, lifecycle and active batches. |
-| `results.py` | Numerical model output, generation results and finish reasons. |
-| `generate.py` | Request lifecycle and generation through Engine batches. |
-| `one_request_generate_demo.py` | Single-prompt example. |
-| `one_batch_generate_demo.py` | Multiple prompts with different sampling settings. |
-| `__init__.py` | Public exports. |
+- Import `BlockManager` and `Scheduler` from their modules; submit with `add_request(req=...)`.
+- Call `schedule()`, then `apply_result(plan=..., sampled_token_ids=...)`.
+- One pending plan; samples follow `plan.sampling_request_ids`. [Contract](../../docs/learning/PLAN.md).
+- Learner-host CPU gate: **55 passed in 1.24s** (2026-10-29). Run from the repository root:
 
-Example entry points, from the repository root:
-
-```bash
-python -m cs336_basics.generation.one_request_generate_demo
-python -m cs336_basics.generation.one_batch_generate_demo
+```sh
+uv run pytest tests/generation/scheduler tests/kv_cache/test_block_manager.py -q
 ```
 
-The batch demo still needs migration to the Engine API. Both demos use these
-default local artifacts:
+- Both `one_request_generate_demo.py` and `one_batch_generate_demo.py` use the broken old path;
+  their tokenizer/checkpoint inputs live under `artifacts/`.
+- Dense model/KV code remains a numerical reference; some generation tests still target legacy interfaces.
 
-- `artifacts/tokenizers/owt_train/tokenizer.pkl`
-- `artifacts/training/train_small_adamw/config.yaml`
-- `artifacts/training/train_small_adamw/checkpoint_0000000100.pt`
+TODO:
 
-Run the CPU tests:
-
-```bash
-python -m pytest tests/generation -q
-```
+- Add packed GPU pages and request-isolated attention, with CPU/CUDA tests first.
+- Implement `Engine.execute` and `run_step`; migrate demos and retire the old loop.
+- Verify continuous arrivals, mixed execution and chunked prefill end to end.
