@@ -29,15 +29,18 @@ class WeightedBatchLM(nn.Module):
         self.seen_batches: list[tuple[tuple[int, ...], ...]] = []
 
     def forward(
-        self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+        self,
+        token_ids: torch.Tensor,
+        *,
+        token_positions=None,
+        kv_caches=None,
+        input_lengths=None,
     ) -> torch.Tensor:
         if token_positions is not None:
             assert token_positions.dtype in (torch.int32, torch.int64)
             assert token_positions.device == token_ids.device
             assert token_positions.shape == token_ids.shape
-            expected_positions = torch.arange(
-                token_ids.shape[1], device=token_ids.device
-            ).expand_as(token_ids)
+            expected_positions = torch.arange(token_ids.shape[1], device=token_ids.device).expand_as(token_ids)
             assert torch.equal(
                 token_positions, expected_positions
             ), "Uncached positions must start at zero in every input row"
@@ -53,10 +56,7 @@ class WeightedBatchLM(nn.Module):
         assert not torch.is_grad_enabled()
 
         rows = tuple(tuple(row) for row in token_ids.tolist())
-        by_padded_row = {
-            prefix + (0,) * (width - len(prefix)): (prefix, weights)
-            for prefix, weights in step
-        }
+        by_padded_row = {prefix + (0,) * (width - len(prefix)): (prefix, weights) for prefix, weights in step}
         assert Counter(rows) == Counter(by_padded_row.keys())
         self.seen_batches.append(rows)
 
@@ -98,10 +98,7 @@ def observe_low_probability_draws(
         support = rows > 0
         assert support.any(dim=-1).all()
         normalized = rows / rows.sum(dim=-1, keepdim=True)
-        observed.extend(
-            (len(model.seen_batches), row.detach().clone())
-            for row in normalized.unbind(0)
-        )
+        observed.extend((len(model.seen_batches), row.detach().clone()) for row in normalized.unbind(0))
 
         minimum = rows.masked_fill(~support, math.inf).amin(dim=-1, keepdim=True)
         candidates = support & (rows == minimum)
@@ -124,9 +121,7 @@ def assert_saw_distribution(
             continue
         # Sampling may use a compact retained vocabulary rather than zero columns.
         actual = row[row > 0].sort().values
-        if actual.shape == expected.shape and torch.allclose(
-            actual, expected.to(actual), rtol=1e-6, atol=1e-7
-        ):
+        if actual.shape == expected.shape and torch.allclose(actual, expected.to(actual), rtol=1e-6, atol=1e-7):
             return
     pytest.fail(f"Missing the request's categorical distribution at forward {step}")
 
@@ -138,9 +133,7 @@ def assert_outcomes(
 ) -> None:
     assert isinstance(results, list)
     assert len(results) == len(requests) == len(expected)
-    for request, result, (tokens, reason) in zip(
-        requests, results, expected, strict=True
-    ):
+    for request, result, (tokens, reason) in zip(requests, results, expected, strict=True):
         assert isinstance(result, GenerationResult)
         assert isinstance(result.token_ids, tuple)
         assert result.token_ids == tokens
@@ -170,9 +163,7 @@ def test_mixed_sampling_uses_each_valid_last_position_in_one_forward(
     observed = observe_low_probability_draws(monkeypatch, model)
 
     for request in requests:
-        request.sampling_params = attrs.evolve(
-            request.sampling_params, max_new_tokens=1, eos_token_id=None
-        )
+        request.sampling_params = attrs.evolve(request.sampling_params, max_new_tokens=1, eos_token_id=None)
     results = batched_generate(
         engine=engine_factory(model),
         requests=requests,
@@ -217,9 +208,7 @@ def test_different_request_filters_drive_non_argmax_tokens_in_one_forward(
     observed = observe_low_probability_draws(monkeypatch, model)
 
     for request in requests:
-        request.sampling_params = attrs.evolve(
-            request.sampling_params, max_new_tokens=1, eos_token_id=None
-        )
+        request.sampling_params = attrs.evolve(request.sampling_params, max_new_tokens=1, eos_token_id=None)
     results = batched_generate(
         engine=engine_factory(model),
         requests=requests,
@@ -273,9 +262,7 @@ def test_sampling_settings_follow_survivors_after_two_eos_removals(
 
     # Each request owns its budget; EOS still wins on its last allowed token.
     for budget, request in enumerate(requests, start=1):
-        request.sampling_params = attrs.evolve(
-            request.sampling_params, max_new_tokens=budget, eos_token_id=2
-        )
+        request.sampling_params = attrs.evolve(request.sampling_params, max_new_tokens=budget, eos_token_id=2)
     results = batched_generate(
         engine=engine_factory(model),
         requests=requests,
@@ -312,15 +299,18 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
             self.calls = 0
 
         def forward(
-            self, token_ids: torch.Tensor, *, token_positions=None, kv_caches=None
+            self,
+            token_ids: torch.Tensor,
+            *,
+            token_positions=None,
+            kv_caches=None,
+            input_lengths=None,
         ) -> torch.Tensor:
             if token_positions is not None:
                 assert token_positions.dtype in (torch.int32, torch.int64)
                 assert token_positions.device == token_ids.device
                 assert token_positions.shape == token_ids.shape
-                expected_positions = torch.arange(
-                    token_ids.shape[1], device=token_ids.device
-                ).expand_as(token_ids)
+                expected_positions = torch.arange(token_ids.shape[1], device=token_ids.device).expand_as(token_ids)
                 assert torch.equal(
                     token_positions, expected_positions
                 ), "Uncached positions must start at zero in every input row"
@@ -360,18 +350,14 @@ def test_disabled_top_k_preserves_the_whole_model_vocabulary(
         )
         draws.append(normalized.detach().clone())
         # Every column is supported; the implementation may remap sorted ranks.
-        return torch.zeros(
-            (*probs.shape[:-1], 1), dtype=torch.int64, device=probs.device
-        )
+        return torch.zeros((*probs.shape[:-1], 1), dtype=torch.int64, device=probs.device)
 
     monkeypatch.setattr(torch, "multinomial", draw)
     model = UniformLM()
     requests = [
         Req(
             token_ids=[11],
-            sampling_params=SamplingParams(
-                temperature=1.0, top_k=None, top_p=1.0, max_new_tokens=1
-            ),
+            sampling_params=SamplingParams(temperature=1.0, top_k=None, top_p=1.0, max_new_tokens=1),
         )
     ]
 

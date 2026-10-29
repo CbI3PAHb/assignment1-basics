@@ -8,6 +8,7 @@ class FinishReason(StrEnum):
     EOS = auto()
     MAX_NEW_TOKENS = auto()
     MAX_CONTEXT_CAPACITY = auto()
+    CANCELLED = auto()
     ERROR = auto()
 
 
@@ -21,3 +22,4 @@ class GenerationResult:
 @attrs.define(kw_only=True)
 class ModelOutput:
     next_tokens_gpu: torch.Tensor
+    sampled_rows_gpu: torch.Tensor | None = None  # - maps returned tokens to batch rows, none means all the rows
