@@ -11,12 +11,10 @@ from yaml.error import Mark
 from yaml.nodes import MappingNode
 
 from ._errors import ConfigError
-from .inference import InferenceMapperConfig, InferenceServerConfig
+from .inference import EngineConfig, SamplingParams
 from .training import ExperimentConfig
 
-ConfigT = TypeVar(
-    "ConfigT", ExperimentConfig, InferenceServerConfig, InferenceMapperConfig
-)
+ConfigT = TypeVar("ConfigT", ExperimentConfig, EngineConfig, SamplingParams)
 
 
 def _structure_integer(value: object, _type: type[int]) -> int:
@@ -27,9 +25,7 @@ def _structure_integer(value: object, _type: type[int]) -> int:
 
 def _structure_float(value: object, _type: type[float]) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(
-            f"expected int or float, got {value!r} ({type(value).__name__})"
-        )
+        raise TypeError(f"expected int or float, got {value!r} ({type(value).__name__})")
     return value
 
 
@@ -61,16 +57,12 @@ def load_config(path: Path, config_cls: type[ConfigT]) -> ConfigT:
         raw = yaml.load(config_file, Loader=_UniqueKeyLoader)
 
     if not isinstance(raw, dict):
-        raise ConfigError(
-            f"YAML config must contain a mapping, got {type(raw).__name__}"
-        )
+        raise ConfigError(f"YAML config must contain a mapping, got {type(raw).__name__}")
 
     return _CONVERTER.structure(raw, config_cls)
 
 
-def dump_config(
-    config: ExperimentConfig | InferenceServerConfig | InferenceMapperConfig,
-) -> str:
+def dump_config(config: ExperimentConfig | EngineConfig | SamplingParams) -> str:
     raw = _CONVERTER.unstructure(config)
     return yaml.safe_dump(raw, allow_unicode=True, sort_keys=False)
 
@@ -84,9 +76,7 @@ def dump_experiment(config: ExperimentConfig) -> str:
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
-    def construct_mapping(
-        self, node: MappingNode, deep: bool = False
-    ) -> dict[object, object]:
+    def construct_mapping(self, node: MappingNode, deep: bool = False) -> dict[object, object]:
         # Check the resulting mapping, including keys brought in by YAML merges
         self.flatten_mapping(node)
         seen: dict[Hashable, Mark] = {}

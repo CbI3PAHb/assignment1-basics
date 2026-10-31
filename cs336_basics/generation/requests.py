@@ -98,10 +98,3 @@ class Req:
 
     def start(self) -> None:
         self.status = ReqStatus.RUNNING
-
-
-@attrs.define(kw_only=True)
-class Batch:
-    """Requests for one execution step; per-step input metadata belongs here"""
-
-    reqs: list[Req]

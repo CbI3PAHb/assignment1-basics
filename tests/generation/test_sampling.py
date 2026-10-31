@@ -1,4 +1,4 @@
-"""CPU/CUDA batch preparation and sampling; request RNG isolation is a later step."""
+"""CPU/CUDA policy preparation and sampling; request RNG isolation is a later step."""
 
 import math
 
@@ -6,22 +6,10 @@ import pytest
 import torch
 
 from cs336_basics.config.inference import SamplingParams
-from cs336_basics.generation.requests import Batch, Req
 from cs336_basics.generation.sampling import BatchSamplingArgs, Sampler
 
 
-def make_batch(*params: SamplingParams) -> Batch:
-    return Batch(
-        reqs=[
-            Req(token_ids=[index + 1], sampling_params=param)
-            for index, param in enumerate(params)
-        ]
-    )
-
-
-def assert_token_vector(
-    tokens: torch.Tensor, expected: list[int], *, device: torch.device
-) -> None:
+def assert_token_vector(tokens: torch.Tensor, expected: list[int], *, device: torch.device) -> None:
     assert tokens.shape == (len(expected),)
     assert tokens.dtype == torch.int64
     assert tokens.device == device
@@ -61,9 +49,7 @@ def test_all_greedy_preparation_uses_argmax_without_a_random_draw(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=5, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(SamplingParams(), SamplingParams())
-    )
+    args = sampler.prepare_sampling_args(policies=(SamplingParams(), SamplingParams()))
     assert args.temperatures is None, "All None temperatures mean greedy"
 
     def forbid_draw(*args: object, **kwargs: object) -> torch.Tensor:
@@ -82,8 +68,8 @@ def test_stochastic_preparation_preserves_per_request_settings_as_columns(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=5, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(
+    args = sampler.prepare_sampling_args(
+        policies=(
             SamplingParams(temperature=0.5, top_k=1, top_p=0.8),
             SamplingParams(temperature=2.0, top_k=None, top_p=1.0),
         )
@@ -103,9 +89,7 @@ def test_stochastic_preparation_preserves_per_request_settings_as_columns(
         torch.tensor([[0.5], [2.0]], device=execution_device),
         check_dtype=False,
     )
-    torch.testing.assert_close(
-        args.top_k, torch.tensor([[1], [5]], device=execution_device), check_dtype=False
-    )
+    torch.testing.assert_close(args.top_k, torch.tensor([[1], [5]], device=execution_device), check_dtype=False)
     torch.testing.assert_close(
         args.top_p,
         torch.tensor([[0.8], [1.0]], device=execution_device),
@@ -118,8 +102,8 @@ def test_mixed_preparation_keeps_columns_and_stochastic_request_settings(
 ) -> None:
     """Check preparation shape; exact mixed-greedy selection is not certified here."""
     sampler = Sampler(vocab_size=5, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(
+    args = sampler.prepare_sampling_args(
+        policies=(
             SamplingParams(),
             SamplingParams(temperature=0.7, top_k=2, top_p=0.9),
         )
@@ -137,9 +121,7 @@ def test_mixed_preparation_keeps_columns_and_stochastic_request_settings(
         torch.tensor([0.7], device=execution_device),
         check_dtype=False,
     )
-    torch.testing.assert_close(
-        args.top_k, torch.tensor([[5], [2]], device=execution_device), check_dtype=False
-    )
+    torch.testing.assert_close(args.top_k, torch.tensor([[5], [2]], device=execution_device), check_dtype=False)
     torch.testing.assert_close(
         args.top_p,
         torch.tensor([[1.0], [0.9]], device=execution_device),
@@ -152,20 +134,14 @@ def test_each_temperature_changes_its_own_categorical_distribution(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=3, device=execution_device)
-    args = BatchSamplingArgs(
-        temperatures=torch.tensor([[0.5], [2.0]], device=execution_device)
-    )
-    logits = torch.tensor(
-        [[math.log(4.0), 0.0, -math.inf]], device=execution_device
-    ).repeat(2, 1)
+    args = BatchSamplingArgs(temperatures=torch.tensor([[0.5], [2.0]], device=execution_device))
+    logits = torch.tensor([[math.log(4.0), 0.0, -math.inf]], device=execution_device).repeat(2, 1)
     observed = script_draw(monkeypatch, [0, 1], execution_device=execution_device)
 
     assert_token_vector(sampler.sample(logits, args), [0, 1], device=execution_device)
     assert len(observed) == 1
     # Weights 4:1 become 16:1 at T=0.5 and 2:1 at T=2.
-    expected = torch.tensor(
-        [[16 / 17, 1 / 17, 0.0], [2 / 3, 1 / 3, 0.0]], device=execution_device
-    )
+    expected = torch.tensor([[16 / 17, 1 / 17, 0.0], [2 / 3, 1 / 3, 0.0]], device=execution_device)
     torch.testing.assert_close(observed[0], expected, rtol=1e-6, atol=1e-7)
 
 
@@ -202,13 +178,9 @@ def test_single_stochastic_request_retains_its_batch_dimension(
         top_k=torch.tensor([[1]], device=execution_device),
     )
     # Only token 1 survives, so this has no statistical failure probability.
-    with torch.random.fork_rng(
-        devices=[execution_device] if execution_device.type == "cuda" else []
-    ):
+    with torch.random.fork_rng(devices=[execution_device] if execution_device.type == "cuda" else []):
         assert_token_vector(
-            sampler.sample(
-                torch.tensor([[0.0, 5.0, 1.0]], device=execution_device), args
-            ),
+            sampler.sample(torch.tensor([[0.0, 5.0, 1.0]], device=execution_device), args),
             [1],
             device=execution_device,
         )
@@ -252,13 +224,11 @@ def assert_exact_mixed_selection(
             if pick_last:
                 selected = torch.where(support, columns, -1).amax(dim=-1, keepdim=True)
             else:
-                selected = torch.where(support, columns, rows.shape[-1]).amin(
-                    dim=-1, keepdim=True
-                )
+                selected = torch.where(support, columns, rows.shape[-1]).amin(dim=-1, keepdim=True)
             return selected[0] if probs.ndim == 1 else selected
 
         monkeypatch.setattr(torch, "multinomial", draw)
-        args = sampler.prepare_batch_sampling_args(make_batch(*params))
+        args = sampler.prepare_sampling_args(policies=params)
         tokens = sampler.sample(logits.clone(), args)
         assert tokens.shape == (len(params),)
         assert tokens.dtype == torch.int64
@@ -266,9 +236,7 @@ def assert_exact_mixed_selection(
         for row, param in enumerate(params):
             token = int(tokens[row])
             if row in greedy_tokens:
-                assert (
-                    token == greedy_tokens[row]
-                ), "A stochastic peer must not change exact greedy selection"
+                assert token == greedy_tokens[row], "A stochastic peer must not change exact greedy selection"
             else:
                 assert param.temperature is not None
                 assert 0 <= token < logits.shape[-1]
@@ -277,14 +245,10 @@ def assert_exact_mixed_selection(
         # Sampling can partition/reorder rows or operate in sorted vocabulary
         # space. Compare probability multisets, without prescribing those choices.
         for expected in expected_random_probs:
-            expected_sorted = (
-                torch.tensor(expected, device=execution_device).sort().values
-            )
+            expected_sorted = torch.tensor(expected, device=execution_device).sort().values
             assert any(
                 row.shape == expected_sorted.shape
-                and torch.allclose(
-                    row.sort().values, expected_sorted, rtol=1e-6, atol=1e-7
-                )
+                and torch.allclose(row.sort().values, expected_sorted, rtol=1e-6, atol=1e-7)
                 for row in observed
             ), "The stochastic request must retain its categorical distribution"
 
@@ -298,11 +262,7 @@ def test_greedy_ties_use_exact_argmax_with_a_stochastic_peer(
     greedy_logits = [0.0, 0.0, -math.inf]
     random_logits = [0.0, math.log(4.0), math.log(2.0)]
     params = [greedy, random] if greedy_first else [random, greedy]
-    rows = (
-        [greedy_logits, random_logits]
-        if greedy_first
-        else [random_logits, greedy_logits]
-    )
+    rows = [greedy_logits, random_logits] if greedy_first else [random_logits, greedy_logits]
     assert_exact_mixed_selection(
         monkeypatch,
         params,
@@ -345,8 +305,8 @@ def test_each_top_p_keeps_its_own_nucleus_in_vocabulary_order(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=4, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(
+    args = sampler.prepare_sampling_args(
+        policies=(
             SamplingParams(temperature=1.0, top_p=0.2),
             SamplingParams(temperature=1.0, top_p=0.6),
             SamplingParams(temperature=1.0, top_p=1.0),
@@ -359,9 +319,7 @@ def test_each_top_p_keeps_its_own_nucleus_in_vocabulary_order(
     ).repeat(3, 1)
     observed = script_draw(monkeypatch, [1, 3, 0], execution_device=execution_device)
 
-    assert_token_vector(
-        sampler.sample(logits, args), [1, 3, 0], device=execution_device
-    )
+    assert_token_vector(sampler.sample(logits, args), [1, 3, 0], device=execution_device)
     assert len(observed) == 1
     expected = torch.tensor(
         [
@@ -379,9 +337,7 @@ def test_combined_top_k_then_top_p_uses_renormalized_retained_mass(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=4, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(SamplingParams(temperature=1.0, top_k=3, top_p=0.75))
-    )
+    args = sampler.prepare_sampling_args(policies=(SamplingParams(temperature=1.0, top_k=3, top_p=0.75),))
     observed = script_draw(monkeypatch, [3], execution_device=execution_device)
 
     # Top-k leaves weights 4,3,2. Their first two normalized masses sum to
@@ -401,15 +357,13 @@ def test_each_temperature_changes_its_own_top_p_nucleus(
     execution_device,
 ) -> None:
     sampler = Sampler(vocab_size=3, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(
+    args = sampler.prepare_sampling_args(
+        policies=(
             SamplingParams(temperature=0.5, top_p=0.7),
             SamplingParams(temperature=2.0, top_p=0.7),
         )
     )
-    logits = torch.tensor(
-        [[0.0, math.log(4.0), math.log(2.0)]], device=execution_device
-    ).repeat(2, 1)
+    logits = torch.tensor([[0.0, math.log(4.0), math.log(2.0)]], device=execution_device).repeat(2, 1)
     observed = script_draw(monkeypatch, [1, 2], execution_device=execution_device)
 
     assert_token_vector(sampler.sample(logits, args), [1, 2], device=execution_device)
@@ -431,8 +385,8 @@ def test_real_multinomial_preserves_mixed_batch_shape_device_and_support(
 ):
     """Exercise the actual categorical kernel with deterministic retained support."""
     sampler = Sampler(vocab_size=4, device=execution_device)
-    args = sampler.prepare_batch_sampling_args(
-        make_batch(
+    args = sampler.prepare_sampling_args(
+        policies=(
             SamplingParams(),
             SamplingParams(temperature=0.7, top_k=1),
             SamplingParams(),
@@ -446,3 +400,51 @@ def test_real_multinomial_preserves_mixed_batch_shape_device_and_support(
     with torch.random.fork_rng(devices=devices):
         selected = sampler.sample(logits, args)
     assert_token_vector(selected, [1, 2, 0], device=execution_device)
+
+
+def test_mixed_temperature_and_filters_preserve_each_policy_distribution(
+    monkeypatch: pytest.MonkeyPatch, execution_device
+) -> None:
+    """Retain the numerical check formerly exercised through the old driver."""
+    sampler = Sampler(vocab_size=4, device=execution_device)
+    args = sampler.prepare_sampling_args(
+        policies=(
+            SamplingParams(temperature=0.5, top_k=2),
+            SamplingParams(temperature=2.0, top_p=0.7),
+        )
+    )
+    logits = torch.tensor(
+        [
+            [0.0, math.log(4.0), math.log(2.0), math.log(3.0)],
+            [0.0, math.log(9.0), math.log(4.0), -math.inf],
+        ],
+        device=execution_device,
+    )
+    observed = script_draw(monkeypatch, [3, 2], execution_device=execution_device)
+    assert_token_vector(sampler.sample(logits, args), [3, 2], device=execution_device)
+    assert len(observed) == 1
+    expected = torch.tensor(
+        [[0.0, 16 / 25, 0.0, 9 / 25], [0.0, 3 / 5, 2 / 5, 0.0]],
+        device=execution_device,
+    )
+    torch.testing.assert_close(observed[0], expected, rtol=1e-6, atol=1e-7)
+
+
+def test_disabled_top_k_preserves_the_whole_model_vocabulary(monkeypatch: pytest.MonkeyPatch, execution_device) -> None:
+    vocab_size = 32768
+    sampler = Sampler(vocab_size=vocab_size, device=execution_device)
+    args = sampler.prepare_sampling_args(policies=(SamplingParams(temperature=1.0, top_k=None, top_p=1.0),))
+    observed = script_draw(monkeypatch, [0], execution_device=execution_device)
+    logits = torch.zeros((1, vocab_size), device=execution_device)
+    assert_token_vector(sampler.sample(logits, args), [0], device=execution_device)
+    assert len(observed) == 1
+    probabilities = observed[0]
+    assert probabilities.shape == (1, vocab_size)
+    assert torch.isfinite(probabilities).all()
+    assert (probabilities > 0).all(), "Disabled top-k retains every vocabulary token"
+    torch.testing.assert_close(
+        probabilities,
+        torch.full_like(probabilities, 1 / vocab_size),
+        rtol=1e-6,
+        atol=1e-9,
+    )

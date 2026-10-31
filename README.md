@@ -2,7 +2,7 @@
 
 - Assignment: [handout](./cs336_spring2025_assignment1_basics.pdf).
 - Report handout/code issues through GitHub issues or pull requests.
-- Implemented: tokenizer, model, training and CPU Scheduler.
+- Implemented: tokenizer, model, training, CPU Scheduler and packed paged attention.
 - Unfinished: paged GPU serving integration.
 - Links: [usage](cs336_basics/README.md), [generation status](cs336_basics/generation/README.md),
   [learning plan](docs/learning/PLAN.md).
@@ -65,6 +65,6 @@ cd ..
 
 ## TODO
 
-- Implement packed paged KV/attention, then connect Engine and the serving loop.
+- Connect packed execution to Engine, then add the serving loop and demo.
 - Validate integrated CPU/CUDA behavior and measure inference performance.
 

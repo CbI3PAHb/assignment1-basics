@@ -1,30 +1,20 @@
 # Generation
 
-- [sampling.py](sampling.py): greedy, temperature, top-k/top-p; preparation still accepts `Batch`.
-- [requests.py](requests.py), [results.py](results.py): histories, computed-token progress and lifecycle.
-- [BlockManager](kv_cache/block_manager.py): CPU credits, request block tables, lazy block allocation/release; no tensors.
-- [Scheduler](scheduler.py): running-first/FIFO admission, token/chunk limits, mixed prefill/decode plans,
-  result commits, cancellation and abort. GPU driver is unfinished.
-- [engine.py](engine.py), [generate.py](generate.py): obsolete dense serving path awaiting replacement.
-  Known failure: `batched_generate` calls the now-property `Req.last_token()`.
+- [sampling.py](sampling.py): greedy, temperature, top-k/top-p. `prepare_sampling_args(policies=...)` accepts policies for selected logit rows.
+- [requests.py](requests.py), [results.py](results.py): request histories/progress, lifecycle and result types.
+- [BlockManager](kv_cache/block_manager.py): request block tables, reservation credits and lazy page allocation/release.
+- [Scheduler](scheduler.py): one-step planning, result commits, stopping, cancellation and abort; CPU gate **55 passed**.
+- [Paged storage](../transformers/paged_kv.py), [attention](../transformers/paged_attention.py) and model integration: **10 + 6 + 8 CPU/CUDA cases passed**.
+- [Engine](engine.py): checkpoint/model initialization retained. `execute(plan=..., kv_store=...)` is the next implementation task.
+- Old serving loop, request `Batch`, demos and mapper/server CLI were removed. There is no end-to-end generation entrypoint yet.
 
-CPU API:
+Usage:
 
-- Import `BlockManager` and `Scheduler` from their modules; submit with `add_request(req=...)`.
-- Call `schedule()`, then `apply_result(plan=..., sampled_token_ids=...)`.
-- One pending plan; samples follow `plan.sampling_request_ids`. [Contract](../../docs/learning/PLAN.md).
-- Learner-host CPU gate: **55 passed in 1.24s** (2026-10-29). Run from the repository root:
-
-```sh
-uv run pytest tests/generation/scheduler tests/kv_cache/test_block_manager.py -q
-```
-
-- Both `one_request_generate_demo.py` and `one_batch_generate_demo.py` use the broken old path;
-  their tokenizer/checkpoint inputs live under `artifacts/`.
-- Dense model/KV code remains a numerical reference; some generation tests still target legacy interfaces.
+- Submit requests with `Scheduler.add_request(req=...)` and obtain one `StepPlan` with `schedule()`.
+- Completed samples must follow `plan.sampling_request_ids`; commit them with `apply_result(plan=..., sampled_token_ids=...)`.
+- The remaining driver will connect schedule → execute → sample transfer → apply. [Contract](../../docs/learning/PLAN.md).
 
 TODO:
 
-- Add packed GPU pages and request-isolated attention, with CPU/CUDA tests first.
-- Implement `Engine.execute` and `run_step`; migrate demos and retire the old loop.
-- Verify continuous arrivals, mixed execution and chunked prefill end to end.
+- Implement `Engine.execute` with packed inputs and sampling of eligible final-query logits.
+- Add `run_step`, an offline driver and a packed demo; test continuous arrivals and failure cleanup.

@@ -1,12 +1,13 @@
+from typing import Sequence
+
 import attrs
 import torch
 import torch.nn.functional as F
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
+from cs336_basics.config import SamplingParams
 from cs336_basics.config._validation import _POSITIVE_INTEGER
-
-from .requests import Batch
 
 
 @attrs.define(kw_only=True)
@@ -26,8 +27,13 @@ class Sampler:
     vocab_size: int = attrs.field(validator=_POSITIVE_INTEGER)
     device: torch.device | str
 
-    def prepare_batch_sampling_args(self, batch: Batch) -> BatchSamplingArgs:
-        greedy_rows = [req.sampling_params.temperature is None for req in batch.reqs]
+    def prepare_sampling_args(self, *, policies: Sequence[SamplingParams]) -> BatchSamplingArgs:
+        """Prepare policies in the same order as the selected logit rows.
+
+        Each policy belongs to one request that needs a sample this step.
+        Requests with intermediate prompt chunks are omitted by the caller.
+        """
+        greedy_rows = [policy.temperature is None for policy in policies]
 
         if all(greedy_rows):
             return BatchSamplingArgs(temperatures=None)
@@ -36,28 +42,16 @@ class Sampler:
         top_ks: list[int] = []
         top_ps: list[float] = []
 
-        for req in batch.reqs:
-            temperature = (
-                req.sampling_params.temperature
-                if req.sampling_params.temperature is not None
-                else 1
-            )
-            top_k = (
-                req.sampling_params.top_k
-                if req.sampling_params.top_k is not None
-                else self.vocab_size
-            )
-            top_p = req.sampling_params.top_p
+        for policy in policies:
+            temperature = policy.temperature if policy.temperature is not None else 1
+            top_k = policy.top_k if policy.top_k is not None else self.vocab_size
+            top_p = policy.top_p
 
             temperatures.append(temperature)
             top_ks.append(top_k)
             top_ps.append(top_p)
 
-        greedy_mask = (
-            torch.tensor(greedy_rows, dtype=torch.bool, device=self.device)
-            if any(greedy_rows)
-            else None
-        )
+        greedy_mask = torch.tensor(greedy_rows, dtype=torch.bool, device=self.device) if any(greedy_rows) else None
 
         return BatchSamplingArgs(
             temperatures=torch.tensor(temperatures, device=self.device).unsqueeze(-1),
@@ -80,30 +74,20 @@ class Sampler:
         if sampling_params.is_greedy:
             return torch.argmax(last_token_logits, dim=-1)
 
-        greedy_tokens = (
-            torch.argmax(last_token_logits, dim=-1)
-            if sampling_params.greedy_mask is not None
-            else None
-        )
+        greedy_tokens = torch.argmax(last_token_logits, dim=-1) if sampling_params.greedy_mask is not None else None
 
         last_token_logits = last_token_logits / sampling_params.temperatures
 
         # top_k first
         if sampling_params.top_k is not None:
             if sampling_params.top_k.shape[:-1] != last_token_logits.shape[:-1]:
-                raise ValueError(
-                    f"Shapes are wrong, got {sampling_params.top_k.shape=}, {last_token_logits.shape=}"
-                )
+                raise ValueError(f"Shapes are wrong, got {sampling_params.top_k.shape=}, {last_token_logits.shape=}")
 
             # 2 additional tensors [B, V]
-            sorted_logits, indices = torch.sort(
-                last_token_logits, dim=1, descending=True
-            )
+            sorted_logits, indices = torch.sort(last_token_logits, dim=1, descending=True)
 
             # additional tensor [V]
-            range_tensor = torch.arange(
-                sorted_logits.shape[1], device=last_token_logits.device
-            )
+            range_tensor = torch.arange(sorted_logits.shape[1], device=last_token_logits.device)
 
             # additional tensor [B, V]
             mask = range_tensor >= sampling_params.top_k
@@ -113,14 +97,10 @@ class Sampler:
         # top_p
         if sampling_params.top_p is not None:
             if sampling_params.top_p.shape[:-1] != last_token_logits.shape[:-1]:
-                raise ValueError(
-                    f"Shapes are wrong, got {sampling_params.top_p.shape=}, {last_token_logits.shape=}"
-                )
+                raise ValueError(f"Shapes are wrong, got {sampling_params.top_p.shape=}, {last_token_logits.shape=}")
 
             # additional sorting TODO optimization is reuse previous sorting in top_k
-            sorted_logits, sorted_indices = torch.sort(
-                last_token_logits, descending=True, dim=1
-            )
+            sorted_logits, sorted_indices = torch.sort(last_token_logits, descending=True, dim=1)
             cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=1), dim=1)
             sorted_mask = cumulative_probs > sampling_params.top_p
 
@@ -129,9 +109,7 @@ class Sampler:
 
             # at least 1 token always remains in the distribution
             sorted_mask[..., 0] = False
-            indices_to_remove = sorted_mask.scatter(
-                dim=1, src=sorted_mask, index=sorted_indices
-            )
+            indices_to_remove = sorted_mask.scatter(dim=1, src=sorted_mask, index=sorted_indices)
             last_token_logits.masked_fill_(mask=indices_to_remove, value=-float("inf"))
 
         probs = F.softmax(last_token_logits, dim=1)
@@ -139,9 +117,7 @@ class Sampler:
 
         if greedy_tokens is not None:
             if sampling_params.greedy_mask is None:
-                raise RuntimeError(
-                    "if greedy_tokens is not None -> greedy_mask should be not None"
-                )
+                raise RuntimeError("if greedy_tokens is not None -> greedy_mask should be not None")
 
             sampled_tokens = torch.where(
                 sampling_params.greedy_mask,

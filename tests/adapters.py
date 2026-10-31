@@ -15,6 +15,7 @@ from cs336_basics.optimizer.adamw import AdamW
 from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
 from cs336_basics.tokenization.bpe import train_bpe
 from cs336_basics.tokenization.tokenizer import Tokenizer
+from cs336_basics.transformers.attention_ops import scaled_dot_product_attention, softmax
 from cs336_basics.transformers.gradient_clipping import gradient_clipping
 from cs336_basics.transformers.transformers import (
     FFN,
@@ -26,9 +27,7 @@ from cs336_basics.transformers.transformers import (
     TransformerBlock,
     TransformerLM,
     cross_entropy_loss,
-    scaled_dot_product_attention,
     silu,
-    softmax,
 )
 
 
@@ -175,9 +174,7 @@ def run_multihead_self_attention(
     mhsa = MultiHeadSelfAttention(d_model, num_heads).to(in_features)
     mhsa.load_state_dict(
         {
-            "w_qkv.weight": torch.cat(
-                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
-            ),
+            "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
             "output_proj.weight": o_proj_weight,
         }
     )
@@ -221,14 +218,10 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta).to(
-        in_features
-    )
+    mhsa = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta).to(in_features)
     mhsa.load_state_dict(
         {
-            "w_qkv.weight": torch.cat(
-                (q_proj_weight, k_proj_weight, v_proj_weight), dim=0
-            ),
+            "w_qkv.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0),
             "output_proj.weight": o_proj_weight,
         }
     )
@@ -335,14 +328,10 @@ def run_transformer_block(
         for k, v in state_dict.items():
             if k not in attn_proj:
                 new_state_dict[k] = v
-        new_state_dict["attn.w_qkv.weight"] = torch.cat(
-            [state_dict[t] for t in attn_proj]
-        )
+        new_state_dict["attn.w_qkv.weight"] = torch.cat([state_dict[t] for t in attn_proj])
         return new_state_dict
 
-    transformer_block = TransformerBlock(
-        d_model, num_heads, d_ff, max_seq_len, theta
-    ).to(in_features)
+    transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta).to(in_features)
     transformer_block.load_state_dict(transform_state_dict(weights))
     return transformer_block(in_features)
 
@@ -427,13 +416,13 @@ def run_transformer_lm(
         next-word distribution for each token.
     """
     model = TransformerLM(
-        vocab_size,
-        context_length,
-        d_model,
-        num_layers,
-        num_heads,
-        d_ff,
-        rope_theta,
+        vocab_size=vocab_size,
+        context_length=context_length,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        rope_theta=rope_theta,
     ).to(in_indices.device)
 
     def transform_state_dict(source_weights: dict[str, Tensor]) -> dict[str, Tensor]:
@@ -573,9 +562,7 @@ def run_cross_entropy(
     return cross_entropy_loss(inputs, targets)
 
 
-def run_gradient_clipping(
-    parameters: Iterable[torch.nn.Parameter], max_l2_norm: float
-) -> None:
+def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
 
     Args:

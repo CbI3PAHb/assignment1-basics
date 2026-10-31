@@ -1,4 +1,3 @@
-from .generate import batched_generate
 from .requests import Req, ReqStatus
 from .results import FinishReason, GenerationResult
 from .sampling import Sampler
@@ -9,5 +8,4 @@ __all__ = [
     "Req",
     "ReqStatus",
     "Sampler",
-    "batched_generate",
 ]

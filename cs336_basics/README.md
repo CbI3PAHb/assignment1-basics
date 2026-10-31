@@ -21,5 +21,4 @@ uv run cs336-basics train run --config cs336_basics/training/training_presets/tr
 ```
 
 - Exactly one `--config` is required.
-- Inference `mapper config` / `server config`: legacy schema validation only; `run` disabled.
-- Generation demos: migration pending; see [status](generation/README.md).
+- CLI currently exposes training only. Packed generation entrypoint is unfinished; see [status](generation/README.md).
