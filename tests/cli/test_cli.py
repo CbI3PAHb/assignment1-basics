@@ -150,9 +150,7 @@ def test_main_config_prints_complete_yaml_without_importing_training(
     assert list(experiment_path.parent.iterdir()) == [experiment_path]
 
 
-def test_main_run_dispatches_the_loaded_experiment(
-    experiment_path, monkeypatch, capsys
-):
+def test_main_run_dispatches_the_loaded_experiment(experiment_path, monkeypatch, capsys):
     expected = load_experiment(experiment_path)
     loaded = []
     dispatched = []
@@ -181,17 +179,13 @@ def test_main_run_dispatches_the_loaded_experiment(
 
 @pytest.mark.parametrize("action", ["config", "run"])
 @pytest.mark.parametrize("duplicate", ["root", "nested"])
-def test_main_rejects_duplicate_yaml_keys(
-    experiment_path, monkeypatch, action, duplicate
-):
+def test_main_rejects_duplicate_yaml_keys(experiment_path, monkeypatch, action, duplicate):
     monkeypatch.setitem(sys.modules, "cs336_basics.training.run", None)
     source = experiment_path.read_text(encoding="utf-8")
     if duplicate == "root":
         source += "seed: 1\nseed: 2\n"
     else:
-        source = source.replace(
-            "  vocab_size: 32\n", "  vocab_size: 32\n  vocab_size: 64\n"
-        )
+        source = source.replace("  vocab_size: 32\n", "  vocab_size: 32\n  vocab_size: 64\n")
     experiment_path.write_text(source, encoding="utf-8")
 
     with pytest.raises(ConstructorError, match="duplicate key"):
@@ -209,9 +203,7 @@ def _exception_leaves(error):
 
 @pytest.mark.parametrize("action", ["config", "run"])
 @pytest.mark.parametrize("scope", ["root", "model"])
-def test_main_rejects_unknown_yaml_fields(
-    minimal_experiment, write_experiment, monkeypatch, action, scope
-):
+def test_main_rejects_unknown_yaml_fields(minimal_experiment, write_experiment, monkeypatch, action, scope):
     monkeypatch.setitem(sys.modules, "cs336_basics.training.run", None)
     section = minimal_experiment if scope == "root" else minimal_experiment[scope]
     section["unexpected_setting"] = 1
@@ -222,23 +214,15 @@ def test_main_rejects_unknown_yaml_fields(
 
     errors = list(_exception_leaves(excinfo.value))
     assert any(
-        isinstance(error, ForbiddenExtraKeysError)
-        and "unexpected_setting" in error.extra_fields
-        for error in errors
+        isinstance(error, ForbiddenExtraKeysError) and "unexpected_setting" in error.extra_fields for error in errors
     )
 
 
 @pytest.mark.parametrize("action", ["config", "run"])
 @pytest.mark.parametrize("field", ["max_steps", "micro_batch_size"])
-def test_main_rejects_float_values_for_integer_fields(
-    minimal_experiment, write_experiment, monkeypatch, action, field
-):
+def test_main_rejects_float_values_for_integer_fields(minimal_experiment, write_experiment, monkeypatch, action, field):
     monkeypatch.setitem(sys.modules, "cs336_basics.training.run", None)
-    section = (
-        minimal_experiment["loop"]
-        if field == "max_steps"
-        else minimal_experiment["data"]["batching"]
-    )
+    section = minimal_experiment["loop"] if field == "max_steps" else minimal_experiment["data"]["batching"]
     section[field] = float(section[field])
     path = write_experiment(minimal_experiment)
 
@@ -246,9 +230,7 @@ def test_main_rejects_float_values_for_integer_fields(
         cli.main(["train", action, "--config", str(path)])
 
     errors = list(_exception_leaves(excinfo.value))
-    assert any(
-        isinstance(error, TypeError) and "integer" in str(error) for error in errors
-    )
+    assert any(isinstance(error, TypeError) and "integer" in str(error) for error in errors)
 
 
 @pytest.mark.parametrize("action", ["config", "run"])
@@ -271,7 +253,5 @@ def test_main_rejects_invalid_checkpoint_policy_before_importing_training(
     with pytest.raises((ClassValidationError, ConfigError)) as caught:
         cli.main(["train", action, "--config", str(path)])
 
-    assert any(
-        isinstance(error, ConfigError) for error in _exception_leaves(caught.value)
-    )
+    assert any(isinstance(error, ConfigError) for error in _exception_leaves(caught.value))
     assert not Path(minimal_experiment["output_dir"]).exists()

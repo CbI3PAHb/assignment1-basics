@@ -24,15 +24,15 @@ from cs336_basics.config._validation import _NONNEGATIVE_INTEGER
 from .attention_ops import scaled_dot_product_attention
 from .paged_kv import PagedKVStore
 
-# B: Number of requests included in this forward.
-# T: Total new input tokens: sum(q_i), where q_i is the count for request i. Excludes already cached tokens.
-# S: Number of requests that need sampling after this forward. 0 <= S <= B; intermediate prefill chunks don’t sample.
-# M: Maximum number of block IDs in any included request’s block table. block_tables has shape [B, M].
-
 
 @attrs.define(kw_only=True)
 class PagedBatchMetadata:
     """Describe boundaries and physical addresses for ONE packed forward.
+
+    B: Number of requests included in this forward.
+    T: Total new input tokens: sum(q_i), where q_i is the count for request i. Excludes already cached tokens.
+    S: Number of requests that need sampling after this forward. 0 <= S <= B; intermediate prefill chunks don't sample.
+    M: Maximum number of block IDs in any included request's block table. block_tables has shape [B, M].
 
     Args:
         q_offsets: Device int[B+1] packed query boundaries, from 0 to T.

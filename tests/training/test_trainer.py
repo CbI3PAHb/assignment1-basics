@@ -81,18 +81,14 @@ def make_trainer(
     )
 
 
-def test_accumulation_matches_one_combined_batch(
-    tensor_model, tensor_batches, tmp_path
-):
+def test_accumulation_matches_one_combined_batch(tensor_model, tensor_batches, tmp_path):
     model, batches = tensor_model, tensor_batches
     reference = copy.deepcopy(model)
     reference_optimizer = torch.optim.SGD(reference.parameters(), lr=0.1)
     inputs = torch.cat([batch[0] for batch in batches])
     targets = torch.cat([batch[1] for batch in batches])
     logits = reference(inputs)
-    expected_loss = torch.nn.functional.cross_entropy(
-        logits.flatten(0, 1), targets.flatten()
-    )
+    expected_loss = torch.nn.functional.cross_entropy(logits.flatten(0, 1), targets.flatten())
     expected_loss.backward()
     reference_optimizer.step()
 
@@ -101,17 +97,13 @@ def test_accumulation_matches_one_combined_batch(
 
     assert not actual_loss.requires_grad
     torch.testing.assert_close(actual_loss, expected_loss.detach())
-    for actual_parameter, expected_parameter in zip(
-        model.parameters(), reference.parameters(), strict=True
-    ):
+    for actual_parameter, expected_parameter in zip(model.parameters(), reference.parameters(), strict=True):
         torch.testing.assert_close(actual_parameter, expected_parameter)
         torch.testing.assert_close(actual_parameter.grad, expected_parameter.grad)
 
 
 @pytest.mark.parametrize("completed_steps", [0, 2])
-def test_schedule_uses_completed_update_count(
-    model, batches, tmp_path, completed_steps
-):
+def test_schedule_uses_completed_update_count(model, batches, tmp_path, completed_steps):
     seen_steps = []
 
     def schedule(step):
@@ -145,9 +137,7 @@ def test_failed_update_does_not_advance_counter(model, batches, tmp_path):
         torch.testing.assert_close(value, original[name])
 
 
-def test_checkpoint_failure_does_not_repeat_successful_update(
-    model, batches, tmp_path, monkeypatch
-):
+def test_checkpoint_failure_does_not_repeat_successful_update(model, batches, tmp_path, monkeypatch):
     trainer = make_trainer(model, tmp_path, batches)
     trainer.config = evolve(
         trainer.config,
@@ -164,9 +154,7 @@ def test_checkpoint_failure_does_not_repeat_successful_update(
     assert trainer.completed_steps == 1
 
 
-def test_clipping_limits_accumulated_gradient_norm(
-    tensor_model, tensor_batches, tmp_path
-):
+def test_clipping_limits_accumulated_gradient_norm(tensor_model, tensor_batches, tmp_path):
     model, batches = tensor_model, tensor_batches
     trainer = make_trainer(model, tmp_path, batches, accumulation=2)
     trainer.config = evolve(
@@ -175,9 +163,7 @@ def test_clipping_limits_accumulated_gradient_norm(
     )
     trainer.train_step()
 
-    norms = [
-        torch.linalg.vector_norm(parameter.grad) for parameter in model.parameters()
-    ]
+    norms = [torch.linalg.vector_norm(parameter.grad) for parameter in model.parameters()]
     norm = torch.linalg.vector_norm(torch.stack(norms))
     assert norm <= trainer.config.loop.max_grad_norm + 1e-8
 
@@ -201,9 +187,7 @@ def test_evaluate_reports_token_weighted_loss_without_changing_training_state(
     original_optimizer = copy.deepcopy(trainer.optimizer.state_dict())
     inputs = torch.cat([batch[0] for batch in eval_batches])
     targets = torch.cat([batch[1] for batch in eval_batches])
-    expected_loss = torch.nn.functional.cross_entropy(
-        model(inputs).flatten(0, 1), targets.flatten()
-    ).detach()
+    expected_loss = torch.nn.functional.cross_entropy(model(inputs).flatten(0, 1), targets.flatten()).detach()
     iterator = iter(eval_batches)
 
     def next_eval_batch():
@@ -242,12 +226,8 @@ def test_evaluate_restores_model_mode_after_failure(model, tmp_path, was_trainin
 
 
 @pytest.mark.parametrize("completed_steps", [0, 1])
-def test_evaluation_runs_at_completed_update_intervals(
-    model, batches, tmp_path, monkeypatch, completed_steps
-):
-    trainer = make_trainer(
-        model, tmp_path, batches * 2, max_steps=4, completed_steps=completed_steps
-    )
+def test_evaluation_runs_at_completed_update_intervals(model, batches, tmp_path, monkeypatch, completed_steps):
+    trainer = make_trainer(model, tmp_path, batches * 2, max_steps=4, completed_steps=completed_steps)
     trainer.config = evolve(
         trainer.config,
         evaluation=EvaluationConfig(do_eval=True, eval_interval=2, num_batches=1),
@@ -280,9 +260,7 @@ def test_disabled_evaluation_is_not_called(model, batches, tmp_path, monkeypatch
     assert trainer.completed_steps == 1
 
 
-def test_evaluation_failure_keeps_successful_update_count(
-    model, batches, tmp_path, monkeypatch
-):
+def test_evaluation_failure_keeps_successful_update_count(model, batches, tmp_path, monkeypatch):
     trainer = make_trainer(model, tmp_path, batches)
     trainer.config = evolve(
         trainer.config,

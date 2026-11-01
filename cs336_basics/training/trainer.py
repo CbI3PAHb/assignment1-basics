@@ -30,12 +30,8 @@ class Trainer:
     ) -> None:
         self.model: nn.Module = model
         self.optimizer: torch.optim.Optimizer = optimizer
-        self.next_train_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = (
-            next_train_batch
-        )
-        self.next_eval_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = (
-            next_eval_batch
-        )
+        self.next_train_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = next_train_batch
+        self.next_eval_batch: Callable[[], tuple[torch.Tensor, torch.Tensor]] = next_eval_batch
         self.lr_schedule: Callable[[int], float] = lr_schedule
         self.completed_steps: int = completed_steps
         self.config = config
@@ -69,19 +65,14 @@ class Trainer:
 
             self._log_train_metrics(loss)
 
-            if (
-                self.config.evaluation.do_eval
-                and self.completed_steps % self.config.evaluation.eval_interval == 0
-            ):
+            if self.config.evaluation.do_eval and self.completed_steps % self.config.evaluation.eval_interval == 0:
                 eval_metrics: dict[str, torch.Tensor] = self.evaluate()
                 self._log_eval_metrics(eval_metrics)
 
             if (
                 self.config.checkpoint.save_checkpoint
                 and self.config.checkpoint.save_checkpoint_interval is not None
-                and self.completed_steps
-                % self.config.checkpoint.save_checkpoint_interval
-                == 0
+                and self.completed_steps % self.config.checkpoint.save_checkpoint_interval == 0
             ):
                 self._save_checkpoint()
                 last_saved_step = self.completed_steps
@@ -119,9 +110,7 @@ class Trainer:
             (loss / self.config.loop.gradient_accumulation_steps).backward()
             losses.append(loss.detach())
 
-        gradient_clipping(
-            self.model.parameters(), max_l2_norm=self.config.loop.max_grad_norm
-        )
+        gradient_clipping(self.model.parameters(), max_l2_norm=self.config.loop.max_grad_norm)
         self.optimizer.step()
 
         return torch.stack(losses).mean()

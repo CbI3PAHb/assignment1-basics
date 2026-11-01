@@ -159,11 +159,21 @@ def test_execute_packs_absolute_positions_pages_and_only_eligible_last_logits(
 
     monkeypatch.setattr(Sampler, "sample", sample)
     model = PackedLM(forward)
-    output = make_engine(model).execute(plan=plan, kv_store=store)
+    hook_outputs = []
+
+    def record_forward(_module, _args, output):
+        hook_outputs.append(tuple(output.shape))
+
+    hook = model.register_forward_hook(record_forward)
+    try:
+        output = make_engine(model).execute(plan=plan, kv_store=store)
+    finally:
+        hook.remove()
     _assert_output(output, [5, 7], device)
     assert plan.sampling_request_ids == ("B", "C")
     assert repr(plan) == before
     assert model.calls == 1 and sampled == [True]
+    assert hook_outputs == [(5, 32)], "Call the model through nn.Module so its forward hooks run"
 
 
 def test_intermediate_only_execute_runs_model_without_sampling_or_rng(

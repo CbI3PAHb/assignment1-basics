@@ -13,9 +13,7 @@ from cs336_basics.optimizer.learning_rate_scheduler import cosine_lr_scheduler
 from ..config.training import DatasetConfig, LRSchedulerConfig, OptimizerConfig
 
 
-def build_optimizer(
-    config: OptimizerConfig, parameters: Iterable[Parameter]
-) -> Optimizer:
+def build_optimizer(config: OptimizerConfig, parameters: Iterable[Parameter]) -> Optimizer:
     """Construct an optimizer for the supplied model parameters."""
     kwargs = attrs.asdict(config, recurse=False)
     optimizer_type = kwargs.pop("type")

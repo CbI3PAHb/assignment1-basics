@@ -19,9 +19,7 @@ def _load(text: str):
         ("- name: first\n  name: second\n", (0, 2), (1, 2)),
     ],
 )
-def test_duplicates_are_rejected_with_both_source_locations(
-    text, first_location, duplicate_location
-):
+def test_duplicates_are_rejected_with_both_source_locations(text, first_location, duplicate_location):
     with pytest.raises(ConstructorError, match="found duplicate key 'name'") as caught:
         _load(text)
 
@@ -32,9 +30,7 @@ def test_duplicates_are_rejected_with_both_source_locations(
 
 
 def test_repeated_key_names_in_separate_mappings_are_allowed():
-    parsed = _load(
-        "left: {name: first}\nright: {name: second}\nrows: [{name: third}, {name: fourth}]\n"
-    )
+    parsed = _load("left: {name: first}\nright: {name: second}\nrows: [{name: third}, {name: fourth}]\n")
 
     assert parsed == {
         "left": {"name": "first"},
@@ -54,9 +50,7 @@ def test_aliases_preserve_shared_objects_and_recursive_mappings():
 
 
 def test_merges_of_distinct_keys_are_allowed():
-    parsed = _load(
-        "left: &left {a: 1}\nright: &right {b: 2}\ncombined:\n  <<: [*left, *right]\n  c: 3\n"
-    )
+    parsed = _load("left: &left {a: 1}\nright: &right {b: 2}\ncombined:\n  <<: [*left, *right]\n  c: 3\n")
 
     assert parsed["combined"] == {"a": 1, "b": 2, "c": 3}
 
@@ -91,9 +85,7 @@ def test_empty_documents_and_scalar_parsing_are_unchanged():
     assert _load("") is None
     assert _load("42") == 42
 
-    parsed = _load(
-        "integer: 42\nfloat: 0.25\nboolean: true\ntext: '42'\nmissing: null\nsequence: [1, two]\n"
-    )
+    parsed = _load("integer: 42\nfloat: 0.25\nboolean: true\ntext: '42'\nmissing: null\nsequence: [1, two]\n")
     assert parsed == {
         "integer": 42,
         "float": 0.25,

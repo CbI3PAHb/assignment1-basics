@@ -43,19 +43,19 @@ def test_linear(numpy_snapshot, ts_state_dict, in_embeddings, d_model, d_ff, exe
 def test_embedding(
     numpy_snapshot,
     ts_state_dict,
-    in_indices,
+    token_ids,
     vocab_size,
     d_model,
     execution_device,
 ):
-    in_indices = in_indices.to(execution_device)
+    token_ids = token_ids.to(execution_device)
     ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     embedding_weight = ts_state_dict[0]["token_embeddings.weight"]
     output = run_embedding(
         vocab_size=vocab_size,
         d_model=d_model,
         weights=embedding_weight,
-        token_ids=in_indices,
+        token_ids=token_ids,
     )
     assert output.device == execution_device
     numpy_snapshot.assert_match(output)
@@ -180,10 +180,10 @@ def test_transformer_lm(
     d_ff,
     theta,
     ts_state_dict,
-    in_indices,
+    token_ids,
     execution_device,
 ):
-    in_indices = in_indices.to(execution_device)
+    token_ids = token_ids.to(execution_device)
     ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
     state_dict, _ = ts_state_dict
 
@@ -196,7 +196,7 @@ def test_transformer_lm(
         d_ff=d_ff,
         rope_theta=theta,
         weights=state_dict,
-        in_indices=in_indices,
+        token_ids=token_ids,
     )
     assert actual_output.device == execution_device
     numpy_snapshot.assert_match(actual_output, atol=1e-4, rtol=1e-2)
@@ -212,12 +212,12 @@ def test_transformer_lm_truncated_input(
     d_ff,
     theta,
     ts_state_dict,
-    in_indices,
+    token_ids,
     execution_device,
 ):
-    in_indices = in_indices.to(execution_device)
+    token_ids = token_ids.to(execution_device)
     ts_state_dict = _state_dict_on_device(ts_state_dict, execution_device)
-    in_indices_truncated = in_indices[..., : in_indices.shape[-1] // 2]
+    in_indices_truncated = token_ids[..., : token_ids.shape[-1] // 2]
     truncated_actual_output = run_transformer_lm(
         vocab_size=vocab_size,
         context_length=n_keys,
@@ -227,7 +227,7 @@ def test_transformer_lm_truncated_input(
         d_ff=d_ff,
         rope_theta=theta,
         weights=ts_state_dict[0],
-        in_indices=in_indices_truncated,
+        token_ids=in_indices_truncated,
     )
 
     assert truncated_actual_output.device == execution_device

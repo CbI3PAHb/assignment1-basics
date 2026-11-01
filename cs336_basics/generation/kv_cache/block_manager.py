@@ -64,7 +64,6 @@ class BlockManager:
     """
 
     # Total physical capacity of the pool.
-
     num_blocks: int = attrs.field(validator=_POSITIVE_INTEGER)
     block_size: int = attrs.field(validator=_POSITIVE_INTEGER)
 

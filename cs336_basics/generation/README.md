@@ -5,7 +5,7 @@
 - [BlockManager](kv_cache/block_manager.py): request block tables, reservation credits and lazy page allocation/release.
 - [Scheduler](scheduler.py): one-step planning, result commits, stopping, cancellation and abort; CPU gate **55 passed**.
 - [Paged storage](../transformers/paged_kv.py), [attention](../transformers/paged_attention.py) and model integration: **10 + 6 + 8 CPU/CUDA cases passed**.
-- [Engine](engine.py): checkpoint/model initialization retained. `execute(plan=..., kv_store=...)` is the next implementation task.
+- [Engine](engine.py): packed execution and eligible sampling; latest related regression **76 passed**.
 - Old serving loop, request `Batch`, demos and mapper/server CLI were removed. There is no end-to-end generation entrypoint yet.
 
 Usage:
@@ -16,5 +16,5 @@ Usage:
 
 TODO:
 
-- Implement `Engine.execute` with packed inputs and sampling of eligible final-query logits.
-- Add `run_step`, an offline driver and a packed demo; test continuous arrivals and failure cleanup.
+- Implement `run_step`: one schedule → execute → CPU samples → apply cycle, with failure cleanup.
+- Add an offline driver and a packed demo; verify integrated continuous arrivals.

@@ -277,12 +277,12 @@ class TransformerLM(nn.Module):
 
     def forward(
         self,
-        in_indices: Int[Tensor, "batch_size sequence_length"],
+        token_ids: Int[Tensor, "... sequence_length"],
         *,
-        token_positions: Int[Tensor, "batch_size sequence_length"] | None = None,
+        token_positions: Int[Tensor, "... sequence_length"] | None = None,
         paged_context: PagedForwardContext | None = None,
     ):
-        hidden_state = self.token_embeddings(in_indices)
+        hidden_state = self.token_embeddings(token_ids)
         for i, layer in enumerate(self.layers):
             hidden_state = layer(
                 hidden_state,

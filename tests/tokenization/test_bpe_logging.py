@@ -31,9 +31,7 @@ def test_setup_logging_is_idempotent_for_child_logger(capsys, monkeypatch) -> No
         logger.propagate = original_propagate
 
 
-def test_bpe_main_configures_stream_logging_without_file_arguments(
-    tmp_path, monkeypatch
-):
+def test_bpe_main_configures_stream_logging_without_file_arguments(tmp_path, monkeypatch):
     configure = Mock()
     train = Mock(return_value=({0: b"a"}, []))
     save = Mock()

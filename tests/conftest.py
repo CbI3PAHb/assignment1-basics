@@ -51,9 +51,7 @@ def _snapshot_test_name(request):
         return name
     base, _, parameter_ids = name.partition("[")
     remaining = [
-        part
-        for part in parameter_ids.removesuffix("]").split("-")
-        if part not in {"device_cpu", "device_cuda"}
+        part for part in parameter_ids.removesuffix("]").split("-") if part not in {"device_cpu", "device_cuda"}
     ]
     return f"{base}[{'-'.join(remaining)}]" if remaining else base
 
@@ -105,9 +103,7 @@ class NumpySnapshot:
         if self.always_match_exact:
             rtol = atol = 0
         if test_name is DEFAULT:
-            assert (
-                self.default_test_name is not None
-            ), "Test name must be provided or set as default"
+            assert self.default_test_name is not None, "Test name must be provided or set as default"
             test_name = self.default_test_name
 
         snapshot_path = self._get_snapshot_path(test_name)
@@ -122,16 +118,12 @@ class NumpySnapshot:
         # Verify all expected arrays are present
         missing_keys = set(arrays_dict.keys()) - set(expected_arrays.keys())
         if missing_keys:
-            raise AssertionError(
-                f"Keys {missing_keys} not found in snapshot for {test_name}"
-            )
+            raise AssertionError(f"Keys {missing_keys} not found in snapshot for {test_name}")
 
         # Verify all actual arrays are expected
         extra_keys = set(expected_arrays.keys()) - set(arrays_dict.keys())
         if extra_keys:
-            raise AssertionError(
-                f"Snapshot contains extra keys {extra_keys} for {test_name}"
-            )
+            raise AssertionError(f"Snapshot contains extra keys {extra_keys} for {test_name}")
 
         # Compare all arrays
         for key in arrays_dict:
@@ -179,9 +171,7 @@ class Snapshot:
         if force_update is DEFAULT:
             force_update = self.default_force_update
         if test_name is DEFAULT:
-            assert (
-                self.default_test_name is not None
-            ), "Test name must be provided or set as default"
+            assert self.default_test_name is not None, "Test name must be provided or set as default"
             test_name = self.default_test_name
 
         snapshot_path = self._get_snapshot_path(test_name)
@@ -193,16 +183,12 @@ class Snapshot:
         if isinstance(actual, dict):
             for key in actual:
                 if key not in expected_data:
-                    raise AssertionError(
-                        f"Key '{key}' not found in snapshot for {test_name}"
-                    )
+                    raise AssertionError(f"Key '{key}' not found in snapshot for {test_name}")
                 assert (
                     actual[key] == expected_data[key]
                 ), f"Data for key '{key}' does not match snapshot for {test_name}"
         else:
-            assert (
-                actual == expected_data
-            ), f"Data does not match snapshot for {test_name}"
+            assert actual == expected_data, f"Data does not match snapshot for {test_name}"
 
 
 @pytest.fixture
@@ -342,7 +328,7 @@ def mask(batch_size, n_queries, n_keys):
 
 
 @pytest.fixture
-def in_indices(batch_size, n_queries):
+def token_ids(batch_size, n_queries):
     torch.random.default_generator.manual_seed(6)
     return torch.randint(0, 10_000, (batch_size, n_queries))
 

@@ -34,9 +34,7 @@ def built_components(monkeypatch):
 
     def build_model(config):
         model = TinyLM(config.vocab_size, config.d_model)
-        components["models"].append(
-            {"model": model, "initial_state": copy.deepcopy(model.state_dict())}
-        )
+        components["models"].append({"model": model, "initial_state": copy.deepcopy(model.state_dict())})
         return model
 
     def build_optimizer(config, parameters):
@@ -85,10 +83,7 @@ def _run_cli(raw, write_experiment):
 
 
 def _saved_checkpoints(output_dir):
-    checkpoints = [
-        (path, torch.load(path, map_location="cpu", weights_only=True))
-        for path in output_dir.glob("*.pt")
-    ]
+    checkpoints = [(path, torch.load(path, map_location="cpu", weights_only=True)) for path in output_dir.glob("*.pt")]
     return sorted(checkpoints, key=lambda checkpoint: checkpoint[1]["iteration"])
 
 
@@ -109,20 +104,15 @@ def _assert_state_equal(actual, expected):
 
 def _assert_model_changed(record):
     assert any(
-        not torch.equal(record["initial_state"][key], value)
-        for key, value in record["model"].state_dict().items()
+        not torch.equal(record["initial_state"][key], value) for key, value in record["model"].state_dict().items()
     )
 
 
-def test_run_connects_train_and_eval_batch_sources(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_run_connects_train_and_eval_batch_sources(cpu_experiment, write_experiment, monkeypatch):
     # Constant, distinct token IDs make the check independent of sampled positions.
     token_ids = {"train": 3, "eval": 17}
     for split, token_id in token_ids.items():
-        np.full(96, token_id, dtype=np.uint16).tofile(
-            cpu_experiment["data"][split]["path"]
-        )
+        np.full(96, token_id, dtype=np.uint16).tofile(cpu_experiment["data"][split]["path"])
 
     trainer_constructor = Mock(name="Trainer")
     monkeypatch.setattr(training_run, "Trainer", trainer_constructor)
@@ -141,14 +131,10 @@ def test_run_connects_train_and_eval_batch_sources(
             assert tensor.shape == expected_shape
             assert tensor.dtype == torch.int64
             assert tensor.device.type == "cpu"
-            torch.testing.assert_close(
-                tensor, torch.full(expected_shape, token_id, dtype=torch.int64)
-            )
+            torch.testing.assert_close(tensor, torch.full(expected_shape, token_id, dtype=torch.int64))
 
 
-def test_run_trains_and_saves_completed_updates_and_resolved_config(
-    cpu_experiment, write_experiment, built_components
-):
+def test_run_trains_and_saves_completed_updates_and_resolved_config(cpu_experiment, write_experiment, built_components):
     config_path = _run_cli(cpu_experiment, write_experiment)
     output_dir = Path(cpu_experiment["output_dir"])
     checkpoints = _saved_checkpoints(output_dir)
@@ -157,12 +143,8 @@ def test_run_trains_and_saves_completed_updates_and_resolved_config(
     model_record = built_components["models"][-1]
     optimizer = built_components["optimizers"][-1]["optimizer"]
     _assert_model_changed(model_record)
-    _assert_state_equal(
-        checkpoints[-1][1]["model_state_dict"], model_record["model"].state_dict()
-    )
-    _assert_state_equal(
-        checkpoints[-1][1]["optimizer_state_dict"], optimizer.state_dict()
-    )
+    _assert_state_equal(checkpoints[-1][1]["model_state_dict"], model_record["model"].state_dict())
+    _assert_state_equal(checkpoints[-1][1]["optimizer_state_dict"], optimizer.state_dict())
     assert checkpoints[-1][1]["optimizer_state_dict"]["state"]
 
     resolved_path = output_dir / "config.yaml"
@@ -172,9 +154,7 @@ def test_run_trains_and_saves_completed_updates_and_resolved_config(
     assert not (output_dir / "log.json").exists()
 
 
-def test_run_with_checkpoint_saving_disabled_still_trains(
-    cpu_experiment, write_experiment, built_components
-):
+def test_run_with_checkpoint_saving_disabled_still_trains(cpu_experiment, write_experiment, built_components):
     cpu_experiment["checkpoint"] = {"save_checkpoint": False}
     _run_cli(cpu_experiment, write_experiment)
 
@@ -184,9 +164,7 @@ def test_run_with_checkpoint_saving_disabled_still_trains(
     _assert_model_changed(built_components["models"][-1])
 
 
-def test_run_passes_evaluation_settings_to_trainer(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_run_passes_evaluation_settings_to_trainer(cpu_experiment, write_experiment, monkeypatch):
     cpu_experiment["evaluation"] = {
         "do_eval": True,
         "eval_interval": 2,
@@ -208,15 +186,11 @@ def test_run_passes_evaluation_settings_to_trainer(
     for _, metrics in evaluations:
         assert torch.isfinite(metrics["evaluation_loss"])
         assert not metrics["evaluation_loss"].requires_grad
-        torch.testing.assert_close(
-            metrics["evaluation_perplexity"], metrics["evaluation_loss"].exp()
-        )
+        torch.testing.assert_close(metrics["evaluation_perplexity"], metrics["evaluation_loss"].exp())
 
 
 @pytest.mark.parametrize("interval, expected_steps", [(None, [4]), (3, [3, 4])])
-def test_run_saves_final_training_state(
-    cpu_experiment, write_experiment, built_components, interval, expected_steps
-):
+def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_components, interval, expected_steps):
     cpu_experiment["checkpoint"] = {
         "save_checkpoint": True,
         "save_checkpoint_interval": interval,
@@ -237,9 +211,7 @@ def test_run_saves_final_training_state(
 
 
 @pytest.mark.parametrize("split", ["train", "eval"])
-def test_missing_dataset_allows_retry_with_same_output_directory(
-    cpu_experiment, write_experiment, split
-):
+def test_missing_dataset_allows_retry_with_same_output_directory(cpu_experiment, write_experiment, split):
     Path(cpu_experiment["data"][split]["path"]).unlink()
     output_dir = Path(cpu_experiment["output_dir"])
 
@@ -249,15 +221,11 @@ def test_missing_dataset_allows_retry_with_same_output_directory(
 
     _write_tokens(cpu_experiment)
     _run_cli(cpu_experiment, write_experiment)
-    assert [
-        artifact["iteration"] for _, artifact in _saved_checkpoints(output_dir)
-    ] == [2, 4]
+    assert [artifact["iteration"] for _, artifact in _saved_checkpoints(output_dir)] == [2, 4]
 
 
 @pytest.mark.parametrize("token_count", [1, 8])
-def test_too_short_dataset_does_not_create_output(
-    token_count, cpu_experiment, write_experiment
-):
+def test_too_short_dataset_does_not_create_output(token_count, cpu_experiment, write_experiment):
     _write_tokens(cpu_experiment, count=token_count)
 
     with pytest.raises(ValueError):
@@ -266,9 +234,7 @@ def test_too_short_dataset_does_not_create_output(
     assert not Path(cpu_experiment["output_dir"]).exists()
 
 
-def test_unavailable_cuda_does_not_create_output(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_unavailable_cuda_does_not_create_output(cpu_experiment, write_experiment, monkeypatch):
     cpu_experiment["runtime"]["device"] = "cuda"
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
@@ -310,9 +276,7 @@ def test_existing_output_directory_is_preserved(cpu_experiment, write_experiment
     assert list(output_dir.iterdir()) == [sentinel]
 
 
-def test_output_creation_race_preserves_the_other_run(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_output_creation_race_preserves_the_other_run(cpu_experiment, write_experiment, monkeypatch):
     output_dir = Path(cpu_experiment["output_dir"])
     sentinel = output_dir / "other-run.txt"
     real_mkdir = Path.mkdir
@@ -336,9 +300,7 @@ def test_output_creation_race_preserves_the_other_run(
     assert list(output_dir.iterdir()) == [sentinel]
 
 
-def test_config_open_failure_removes_new_output_directory(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_config_open_failure_removes_new_output_directory(cpu_experiment, write_experiment, monkeypatch):
     output_dir = Path(cpu_experiment["output_dir"])
     config_path = output_dir / "config.yaml"
     real_open = Path.open
@@ -396,9 +358,7 @@ def test_config_write_failure_removes_owned_file_and_new_output_directory(
     assert not output_dir.exists()
 
 
-def test_training_failure_preserves_output_directory_and_resolved_config(
-    cpu_experiment, write_experiment, monkeypatch
-):
+def test_training_failure_preserves_output_directory_and_resolved_config(cpu_experiment, write_experiment, monkeypatch):
     def fail_training(self):
         raise RuntimeError("training interrupted")
 
@@ -422,9 +382,7 @@ def test_resume_restores_optimizer_and_saves_at_absolute_update_count(
     cpu_experiment["loop"]["max_steps"] = 2
     cpu_experiment["output_dir"] = str(tmp_path / "source")
     _run_cli(cpu_experiment, write_experiment)
-    source_path, source_artifact = _saved_checkpoints(
-        Path(cpu_experiment["output_dir"])
-    )[0]
+    source_path, source_artifact = _saved_checkpoints(Path(cpu_experiment["output_dir"]))[0]
 
     cpu_experiment["loop"]["max_steps"] = 4
     cpu_experiment["output_dir"] = str(tmp_path / "resumed")
@@ -454,9 +412,7 @@ def test_init_weights_restores_model_but_resets_optimizer_and_update_count(
     cpu_experiment["loop"]["max_steps"] = 2
     cpu_experiment["output_dir"] = str(tmp_path / "source")
     _run_cli(cpu_experiment, write_experiment)
-    source_path, source_artifact = _saved_checkpoints(
-        Path(cpu_experiment["output_dir"])
-    )[0]
+    source_path, source_artifact = _saved_checkpoints(Path(cpu_experiment["output_dir"]))[0]
 
     cpu_experiment["loop"]["max_steps"] = 1
     cpu_experiment["output_dir"] = str(tmp_path / "initialized")

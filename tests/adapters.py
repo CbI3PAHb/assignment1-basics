@@ -345,7 +345,7 @@ def run_transformer_lm(
     d_ff: int,
     rope_theta: float,
     weights: dict[str, Tensor],
-    in_indices: Int[Tensor, " batch_size sequence_length"],
+    token_ids: Int[Tensor, " batch_size sequence_length"],
 ) -> Float[Tensor, " batch_size sequence_length vocab_size"]:
     """Given the weights of a Transformer language model and input indices,
     return the output of running a forward pass on the input indices.
@@ -408,7 +408,7 @@ def run_transformer_lm(
             - `lm_head.weight`
                 Weights of the language model output embedding.
                 Shape is (vocab_size, d_model).
-        in_indices (Int[Tensor, "batch_size sequence_length"]) Tensor with input indices to run the language model on. Shape is (batch_size, sequence_length), where
+        token_ids (Int[Tensor, "batch_size sequence_length"]) Tensor with input indices to run the language model on. Shape is (batch_size, sequence_length), where
             `sequence_length` is at most `context_length`.
 
     Returns:
@@ -423,7 +423,7 @@ def run_transformer_lm(
         num_heads=num_heads,
         d_ff=d_ff,
         rope_theta=rope_theta,
-    ).to(in_indices.device)
+    ).to(token_ids.device)
 
     def transform_state_dict(source_weights: dict[str, Tensor]) -> dict[str, Tensor]:
         """
@@ -458,7 +458,7 @@ def run_transformer_lm(
 
     state_dict = transform_state_dict(weights)
     model.load_state_dict(state_dict)
-    return model(in_indices)
+    return model(token_ids)
 
 
 def run_rmsnorm(

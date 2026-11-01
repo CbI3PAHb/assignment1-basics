@@ -50,15 +50,11 @@ def test_configuration_converts_serializable_inputs(experiment):
     assert experiment.data.eval.path == Path("eval_tokens.bin")
     assert experiment.optimizer.betas == (0.9, 0.95)
     assert isinstance(experiment.optimizer.betas, tuple)
-    assert CheckpointConfig(resume_from="run/checkpoint.pt").resume_from == Path(
-        "run/checkpoint.pt"
-    )
+    assert CheckpointConfig(resume_from="run/checkpoint.pt").resume_from == Path("run/checkpoint.pt")
     assert CheckpointConfig().resume_from is None
 
 
-def test_output_dir_default_is_generated_for_each_config(
-    experiment, tmp_path, monkeypatch
-):
+def test_output_dir_default_is_generated_for_each_config(experiment, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     moments = [
         datetime(2026, 10, 13, 12, 0, 1, tzinfo=timezone.utc),
@@ -73,16 +69,12 @@ def test_output_dir_default_is_generated_for_each_config(
     configs = [ExperimentConfig(**arguments), ExperimentConfig(**arguments)]
 
     for config, moment in zip(configs, moments, strict=True):
-        assert config.output_dir == Path(
-            "artifacts/training"
-        ) / moment.astimezone().strftime("%Y%m%d_%H%M%S")
+        assert config.output_dir == Path("artifacts/training") / moment.astimezone().strftime("%Y%m%d_%H%M%S")
     assert configs[0].output_dir != configs[1].output_dir
     assert list(tmp_path.iterdir()) == []
 
 
-@pytest.mark.parametrize(
-    "lr", [True, "0.001", 0, -1, float("nan"), float("inf"), float("-inf")]
-)
+@pytest.mark.parametrize("lr", [True, "0.001", 0, -1, float("nan"), float("inf"), float("-inf")])
 def test_optimizer_rejects_invalid_learning_rate(lr):
     with pytest.raises((TypeError, ValueError)):
         OptimizerConfig(lr=lr)
@@ -153,9 +145,7 @@ def test_experiment_checks_component_compatibility(experiment):
 def test_checkpoint_start_modes_are_mutually_exclusive():
     with pytest.raises(ConfigError, match="mutually exclusive"):
         CheckpointConfig(resume_from="resume.pt", init_weights_from="weights.pt")
-    assert CheckpointConfig(init_weights_from="weights.pt").init_weights_from == Path(
-        "weights.pt"
-    )
+    assert CheckpointConfig(init_weights_from="weights.pt").init_weights_from == Path("weights.pt")
 
 
 def test_configuration_is_frozen_and_evolve_revalidates(experiment):
@@ -232,9 +222,7 @@ def test_checkpoint_interval_requires_positive_integer(value):
 
 @pytest.mark.parametrize("value", [None, 1])
 def test_checkpoint_interval_accepts_disabled_or_positive_value(value):
-    config = CheckpointConfig(
-        save_checkpoint=value is not None, save_checkpoint_interval=value
-    )
+    config = CheckpointConfig(save_checkpoint=value is not None, save_checkpoint_interval=value)
     assert config.save_checkpoint_interval == value
 
 

@@ -27,9 +27,7 @@ def parse_args():
         default="./bpe_tokenizer",
         help="Directory to load vocab and merges.",
     )
-    parser.add_argument(
-        "--silent", action="store_true", help="Disable output logs into console."
-    )
+    parser.add_argument("--silent", action="store_true", help="Disable output logs into console.")
     return parser.parse_args()
 
 

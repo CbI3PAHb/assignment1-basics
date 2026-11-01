@@ -18,9 +18,7 @@ def test_softmax_matches_pytorch(execution_device):
     expected = F.softmax(x, dim=-1)
     actual = run_softmax(x, dim=-1)
     assert actual.device == execution_device
-    numpy.testing.assert_allclose(
-        actual.detach().cpu().numpy(), expected.detach().cpu().numpy(), atol=1e-6
-    )
+    numpy.testing.assert_allclose(actual.detach().cpu().numpy(), expected.detach().cpu().numpy(), atol=1e-6)
     # Test that softmax handles numerical overflow issues
     shifted_actual = run_softmax(x + 100, dim=-1)
     assert shifted_actual.device == execution_device
@@ -61,12 +59,8 @@ def test_cross_entropy(execution_device):
 
     # Test that cross-entropy handles numerical overflow issues
     large_inputs = 1000.0 * inputs
-    large_expected_cross_entropy = F.cross_entropy(
-        large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1)
-    )
-    large_actual = run_cross_entropy(
-        large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1)
-    )
+    large_expected_cross_entropy = F.cross_entropy(large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1))
+    large_actual = run_cross_entropy(large_inputs.view(-1, large_inputs.size(-1)), targets.view(-1))
     assert large_actual.device == execution_device
     numpy.testing.assert_allclose(
         large_actual.detach().cpu().numpy(),

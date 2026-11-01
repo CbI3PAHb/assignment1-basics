@@ -24,9 +24,7 @@ def test_bpe_trainer_initializes_word_and_pair_indexes() -> None:
         heap_after=10,
     )
 
-    assert trainer.vocabulary == {
-        token_id: bytes([token_id]) for token_id in range(256)
-    }
+    assert trainer.vocabulary == {token_id: bytes([token_id]) for token_id in range(256)}
     assert trainer.merges == []
 
     word_ids = {word: word_id for word_id, word in trainer.words.items()}

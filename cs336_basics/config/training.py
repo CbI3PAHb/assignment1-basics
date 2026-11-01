@@ -43,22 +43,14 @@ class DatasetConfig:
     """A flat, already tokenized binary file; dtype describes its stored token IDs"""
 
     path: Path = attrs.field(converter=_to_path)
-    dtype: DatasetDType = attrs.field(
-        default="uint16", validator=attrs.validators.in_(SUPPORTED_DATASET_DTYPES)
-    )
+    dtype: DatasetDType = attrs.field(default="uint16", validator=attrs.validators.in_(SUPPORTED_DATASET_DTYPES))
 
 
 @attrs.frozen(kw_only=True)
 class DataConfig:
-    train: DatasetConfig = attrs.field(
-        validator=attrs.validators.instance_of(DatasetConfig)
-    )
-    eval: DatasetConfig = attrs.field(
-        validator=attrs.validators.instance_of(DatasetConfig)
-    )
-    batching: BatchingConfig = attrs.field(
-        validator=attrs.validators.instance_of(BatchingConfig)
-    )
+    train: DatasetConfig = attrs.field(validator=attrs.validators.instance_of(DatasetConfig))
+    eval: DatasetConfig = attrs.field(validator=attrs.validators.instance_of(DatasetConfig))
+    batching: BatchingConfig = attrs.field(validator=attrs.validators.instance_of(BatchingConfig))
 
 
 def _to_betas(value: tuple[float, ...] | list[float]) -> tuple[float, ...]:
@@ -72,9 +64,7 @@ _BETAS = attrs.validators.and_(
     attrs.validators.min_len(2),
     attrs.validators.max_len(2),
     attrs.validators.deep_iterable(
-        member_validator=attrs.validators.and_(
-            _NONNEGATIVE_NUMBER, attrs.validators.lt(1)
-        ),
+        member_validator=attrs.validators.and_(_NONNEGATIVE_NUMBER, attrs.validators.lt(1)),
     ),
 )
 
@@ -84,21 +74,15 @@ class OptimizerConfig:
     """Optimizer settings; lr is the peak learning rate used by the lr_scheduler"""
 
     lr: float = attrs.field(default=1e-3, validator=_POSITIVE_NUMBER)
-    type: OptimizerType = attrs.field(
-        default="adamw", validator=attrs.validators.in_(SUPPORTED_OPTIMIZER_TYPES)
-    )
-    betas: tuple[float, float] = attrs.field(
-        default=(0.9, 0.999), converter=_to_betas, validator=_BETAS
-    )
+    type: OptimizerType = attrs.field(default="adamw", validator=attrs.validators.in_(SUPPORTED_OPTIMIZER_TYPES))
+    betas: tuple[float, float] = attrs.field(default=(0.9, 0.999), converter=_to_betas, validator=_BETAS)
     eps: float = attrs.field(default=1e-8, validator=_POSITIVE_NUMBER)
     weight_decay: float = attrs.field(default=0.01, validator=_NONNEGATIVE_NUMBER)
 
 
 @attrs.frozen(kw_only=True)
 class LRSchedulerConfig:
-    type: LRSchedulerType = attrs.field(
-        default="cosine", validator=attrs.validators.in_(SUPPORTED_SCHEDULER_TYPES)
-    )
+    type: LRSchedulerType = attrs.field(default="cosine", validator=attrs.validators.in_(SUPPORTED_SCHEDULER_TYPES))
     warmup_steps: int = attrs.field(default=0, validator=_NONNEGATIVE_INTEGER)
     min_lr: float = attrs.field(default=1e-6, validator=_NONNEGATIVE_NUMBER)
 
@@ -108,9 +92,7 @@ class LoopConfig:
     """max_steps counts total optimizer updates, including updates completed before a resume"""
 
     max_steps: int = attrs.field(validator=_POSITIVE_INTEGER)
-    gradient_accumulation_steps: int = attrs.field(
-        default=1, validator=_POSITIVE_INTEGER
-    )
+    gradient_accumulation_steps: int = attrs.field(default=1, validator=_POSITIVE_INTEGER)
     max_grad_norm: float = attrs.field(default=1.0, validator=_POSITIVE_NUMBER)
 
 
@@ -120,76 +102,45 @@ class EvaluationConfigError(ConfigError):
 
 @attrs.frozen(kw_only=True)
 class EvaluationConfig:
-    do_eval: bool = attrs.field(
-        default=False, validator=attrs.validators.instance_of(bool)
-    )
-    eval_interval: int | None = attrs.field(
-        default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER)
-    )
-    num_batches: int | None = attrs.field(
-        default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER)
-    )
+    do_eval: bool = attrs.field(default=False, validator=attrs.validators.instance_of(bool))
+    eval_interval: int | None = attrs.field(default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER))
+    num_batches: int | None = attrs.field(default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER))
 
     def __attrs_post_init__(self) -> None:
         if not self.do_eval:
             if self.eval_interval is not None:
-                raise EvaluationConfigError(
-                    "eval_interval must be None when do_eval is False"
-                )
+                raise EvaluationConfigError("eval_interval must be None when do_eval is False")
             if self.num_batches is not None:
-                raise EvaluationConfigError(
-                    "num_batches must be None when do_eval is False"
-                )
+                raise EvaluationConfigError("num_batches must be None when do_eval is False")
         else:
             if self.eval_interval is None:
-                raise EvaluationConfigError(
-                    "eval_interval must not be None when do_eval is True"
-                )
+                raise EvaluationConfigError("eval_interval must not be None when do_eval is True")
             if self.num_batches is None:
-                raise EvaluationConfigError(
-                    "num_batches must not be None when do_eval is True"
-                )
+                raise EvaluationConfigError("num_batches must not be None when do_eval is True")
 
 
 @attrs.frozen(kw_only=True)
 class CheckpointConfig:
     """Restore optional state and configure saving; intervals count completed optimizer updates."""
 
-    resume_from: Path | None = attrs.field(
-        default=None, converter=attrs.converters.optional(_to_path)
-    )
-    init_weights_from: Path | None = attrs.field(
-        default=None, converter=attrs.converters.optional(_to_path)
-    )
-    save_checkpoint: bool = attrs.field(
-        default=False, validator=attrs.validators.instance_of(bool)
-    )
+    resume_from: Path | None = attrs.field(default=None, converter=attrs.converters.optional(_to_path))
+    init_weights_from: Path | None = attrs.field(default=None, converter=attrs.converters.optional(_to_path))
+    save_checkpoint: bool = attrs.field(default=False, validator=attrs.validators.instance_of(bool))
     save_checkpoint_interval: int | None = attrs.field(
         default=None, validator=attrs.validators.optional(_POSITIVE_INTEGER)
     )
-    save_checkpoint_at_the_end: bool = attrs.field(
-        default=False, validator=attrs.validators.instance_of(bool)
-    )
+    save_checkpoint_at_the_end: bool = attrs.field(default=False, validator=attrs.validators.instance_of(bool))
 
     def __attrs_post_init__(self) -> None:
         if self.resume_from is not None and self.init_weights_from is not None:
-            raise ConfigError(
-                "resume_from and init_weights_from are mutually exclusive"
-            )
+            raise ConfigError("resume_from and init_weights_from are mutually exclusive")
 
         if not self.save_checkpoint:
             if self.save_checkpoint_interval is not None:
-                raise ConfigError(
-                    "save_checkpoint_interval must be None when save_checkpoint is False"
-                )
+                raise ConfigError("save_checkpoint_interval must be None when save_checkpoint is False")
             if self.save_checkpoint_at_the_end:
-                raise ConfigError(
-                    "save_checkpoint_at_the_end must be False when save_checkpoint is False"
-                )
-        elif (
-            self.save_checkpoint_interval is None
-            and not self.save_checkpoint_at_the_end
-        ):
+                raise ConfigError("save_checkpoint_at_the_end must be False when save_checkpoint is False")
+        elif self.save_checkpoint_interval is None and not self.save_checkpoint_at_the_end:
             raise ConfigError(
                 "save_checkpoint=True requires save_checkpoint_interval or save_checkpoint_at_the_end=True"
             )
@@ -219,24 +170,16 @@ class ExperimentConfig:
     """One experiment, composed from architecture and training settings"""
 
     output_dir: Path = attrs.field(factory=_default_output_dir, converter=_to_path)
-    model: ModelConfig = attrs.field(
-        validator=attrs.validators.instance_of(ModelConfig)
-    )
+    model: ModelConfig = attrs.field(validator=attrs.validators.instance_of(ModelConfig))
     data: DataConfig = attrs.field(validator=attrs.validators.instance_of(DataConfig))
-    optimizer: OptimizerConfig = attrs.field(
-        validator=attrs.validators.instance_of(OptimizerConfig)
-    )
+    optimizer: OptimizerConfig = attrs.field(validator=attrs.validators.instance_of(OptimizerConfig))
     loop: LoopConfig = attrs.field(validator=attrs.validators.instance_of(LoopConfig))
-    seed: int = attrs.field(
-        default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)]
-    )
+    seed: int = attrs.field(default=42, validator=[_NONNEGATIVE_INTEGER, attrs.validators.le(2**32 - 1)])
     lr_scheduler: LRSchedulerConfig = attrs.field(
         factory=LRSchedulerConfig,
         validator=attrs.validators.instance_of(LRSchedulerConfig),
     )
-    runtime: RuntimeConfig = attrs.field(
-        factory=RuntimeConfig, validator=attrs.validators.instance_of(RuntimeConfig)
-    )
+    runtime: RuntimeConfig = attrs.field(factory=RuntimeConfig, validator=attrs.validators.instance_of(RuntimeConfig))
     checkpoint: CheckpointConfig = attrs.field(
         factory=CheckpointConfig,
         validator=attrs.validators.instance_of(CheckpointConfig),

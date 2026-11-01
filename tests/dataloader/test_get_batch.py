@@ -19,9 +19,7 @@ def test_read_only_memmap_batch(tmp_path, dtype, execution_device):
         torch.set_warn_always(True)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            inputs, targets = get_batch(
-                dataset, batch_size=8, context_length=7, device=str(execution_device)
-            )
+            inputs, targets = get_batch(dataset, batch_size=8, context_length=7, device=str(execution_device))
     finally:
         torch.set_warn_always(previous_warn_always)
 
@@ -63,16 +61,12 @@ def test_uint32_token_ids_are_not_truncated(tmp_path, execution_device):
     tokens.tofile(path)
     dataset = np.memmap(path, dtype=np.uint32, mode="r")
 
-    inputs, targets = get_batch(
-        dataset, batch_size=3, context_length=4, device=str(execution_device)
-    )
+    inputs, targets = get_batch(dataset, batch_size=3, context_length=4, device=str(execution_device))
     assert inputs.device == targets.device == execution_device
 
     torch.testing.assert_close(
         inputs,
-        torch.tensor(tokens[:-1].astype(np.int64), device=execution_device).repeat(
-            3, 1
-        ),
+        torch.tensor(tokens[:-1].astype(np.int64), device=execution_device).repeat(3, 1),
     )
     torch.testing.assert_close(
         targets,

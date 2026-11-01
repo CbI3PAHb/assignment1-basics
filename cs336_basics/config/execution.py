@@ -10,9 +10,7 @@ SUPPORTED_DEVICE_TYPES = get_args(DeviceType)
 class RuntimeConfig:
     """CPU or CUDA"""
 
-    device: DeviceType = attrs.field(
-        default="cuda", validator=attrs.validators.in_(SUPPORTED_DEVICE_TYPES)
-    )
+    device: DeviceType = attrs.field(default="cuda", validator=attrs.validators.in_(SUPPORTED_DEVICE_TYPES))
 
 
 @attrs.frozen(kw_only=True)
