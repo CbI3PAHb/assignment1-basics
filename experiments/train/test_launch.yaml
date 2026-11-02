@@ -11,10 +11,10 @@ model:
 
 data:
   train:
-    path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_train.bin
+    path: tokenized_datasets/owt_train.bin
     dtype: uint16
   eval:
-    path: /home/parii-artem/wip/EFDL/assignment1-basics/tokenized_datasets/owt_valid.bin
+    path: tokenized_datasets/owt_valid.bin
     dtype: uint16
   batching:
     type: random_sequences

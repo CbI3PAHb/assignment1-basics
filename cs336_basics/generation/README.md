@@ -21,13 +21,14 @@ Run the demo from the repository root with matching checkpoint configuration and
 
 ```sh
 uv run python -m cs336_basics.generation.demo \
-  --prompts-file-path prompts.jsonl \
-  --tokenizer-pickle-path tokenizer.pkl \
-  --engine-config-path engine_config.yaml \
+  --prompts-file-path experiments/generation/requests.jsonl \
+  --tokenizer-pickle-path artifacts/tokenizers/owt_train/tokenizer.pkl \
+  --engine-config-path experiments/generation/engine_config.yaml \
   --num-blocks 128 --block-size 8 \
   --max-step-input-tokens 32 --max-active-requests 4 --max-prefill-chunk-tokens 16
 ```
 
+- Edit the [generation example](../../experiments/generation/README.md) to match your checkpoint and tokenizer artifacts; relative paths use the repository root.
 - Each nonblank input line is JSON: `{"prompt": "Hello", "max_new_tokens": 16}`. Flat per-request fields use `SamplingParams` defaults when omitted; prompt whitespace is preserved.
 - Output is one JSON object per input in order: `prompt`, `text` (generated suffix only), `finish_reason`. Debug prints are disabled; initial EOS produces empty `text`.
 

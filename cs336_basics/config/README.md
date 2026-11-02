@@ -7,5 +7,5 @@
 - Validation: rejects duplicate keys, unknown fields, invalid scalar types and incompatible settings.
 - Loading opens no datasets/checkpoints and creates no run directories; relative paths use the working directory.
 - Inference configuration: `EngineConfig` and `SamplingParams`; the CPU Scheduler takes explicit limits.
-- TODO: paged-storage and packed-execution settings during integration.
-- See [training presets](../training/training_presets/README.md) and [configuration tests](../../tests/configs/README.md).
+- The [generation demo](../generation/README.md) takes page geometry and scheduler budgets through CLI flags; context capacity comes from the model configuration.
+- See [training experiments](../../experiments/train/README.md), [generation example](../../experiments/generation/README.md) and [configuration tests](../../tests/configs/README.md).

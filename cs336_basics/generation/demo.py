@@ -25,17 +25,17 @@ def parse_args(argv: Sequence[str] | None = None):
     parser.add_argument(
         "--prompts-file-path",
         type=Path,
-        default="/home/parii-artem/wip/EFDL/assignment1-basics/artifacts/generation/dummy_requests_5_short.txt",
+        default="experiments/generation/requests.jsonl",
     )
     parser.add_argument(
         "--tokenizer-pickle-path",
         type=Path,
-        default="/home/parii-artem/wip/EFDL/assignment1-basics/artifacts/tokenizers/owt_train/tokenizer.pkl",
+        default="artifacts/tokenizers/owt_train/tokenizer.pkl",
     )
     parser.add_argument(
         "--engine-config-path",
         type=Path,
-        default="/home/parii-artem/wip/EFDL/assignment1-basics/artifacts/generation/engine_config.yaml",
+        default="experiments/generation/engine_config.yaml",
     )
 
     parser.add_argument("--num-blocks", default=128, type=int, help="physical pages in the KV pool")

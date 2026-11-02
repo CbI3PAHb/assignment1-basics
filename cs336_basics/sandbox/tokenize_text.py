@@ -72,14 +72,16 @@ if __name__ == "__main__":
     main()
 
 """
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/sandbox/tokenize_text.py \
-    --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt \
-    --vocab-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/owt_train_vocab.pkl \
+Run from the repository root:
+
+uv run python -m cs336_basics.sandbox.tokenize_text \
+    --dataset-file-path data/TinyStoriesV2-GPT4-valid.txt \
+    --vocab-file-path cs336_basics/tokenization/owt_train_vocab.pkl \
     > owt_train.stdout.log 2> owt_train.stderr.log
 
 
-python3 /Users/parii-artem/Documents/assignment1-basics/cs336_basics/sandbox/tokenize_text.py \
-    --dataset-file-path /Users/parii-artem/Documents/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt \
-    --vocab-file-path /Users/parii-artem/Documents/assignment1-basics/cs336_basics/tokenization/tiny_stories_train_vocab.pkl \
+uv run python -m cs336_basics.sandbox.tokenize_text \
+    --dataset-file-path data/TinyStoriesV2-GPT4-train.txt \
+    --vocab-file-path cs336_basics/tokenization/tiny_stories_train_vocab.pkl \
     > tiny_stories.stdout.log 2> tiny_stories.stderr.log
 """

@@ -12,7 +12,7 @@
 | [xl.yaml](xl.yaml) | 1600 | 48 | 25 | 6400 |
 | [2.7b.yaml](2.7b.yaml) | 2560 | 32 | 32 | 10240 |
 
-- Copy the mapping into `model:` in a full [training configuration](../training_presets/README.md).
+- Copy the mapping into `model:` in a full [training configuration](../../../experiments/train/README.md).
 - CLI: one complete experiment YAML; no preset composition or selection by name.
 - Context length must cover `data.batching.sequence_length`; vocabulary size must cover dataset token IDs.
 - Names are labels, not parameter-count or hardware-fit guarantees.

@@ -1,7 +1,7 @@
 # Training presets
 
-- Load as [ExperimentConfig](../../config/training.py); omitted fields use defaults.
-- Shared settings: AdamW, cosine learning rates, CUDA, absolute local OWT train/validation paths.
+- Load as [ExperimentConfig](../../cs336_basics/config/training.py); omitted fields use defaults.
+- Shared settings: AdamW, cosine learning rates, CUDA, repository-relative OWT train/validation paths.
 
 | File | Actual settings |
 | --- | --- |
@@ -14,11 +14,12 @@
 - From the repository root, inspect settings before launching:
 
 ```bash
-uv run python -m cs336_basics train config --config cs336_basics/training/training_presets/train_small_adamw.yaml
-uv run python -m cs336_basics train run --config cs336_basics/training/training_presets/train_small_adamw.yaml
+uv run python -m cs336_basics train config --config experiments/train/train_small_adamw.yaml
+uv run python -m cs336_basics train run --config experiments/train/train_small_adamw.yaml
 ```
 
-- Edit dataset/output paths first; training requires the files and requested device.
+- Paths resolve from the repository root; tokenized datasets live under `tokenized_datasets/`, outputs under `artifacts/training/`.
+- Edit paths as needed; training requires the files and requested device.
 - Output directory must not already exist.
 - `config` validates and prints settings without starting training.
-- [CheckpointConfig](../../config/training.py) validates saving/resume settings; intervals count optimizer updates.
+- [CheckpointConfig](../../cs336_basics/config/training.py) validates saving/resume settings; intervals count optimizer updates.

@@ -3,7 +3,7 @@
 - Assignment: [pdf](./cs336_spring2025_assignment1_basics.pdf).
 - Implemented: tokenizer, model, training, packed paged offline generation and a checkpoint/tokenizer demo.
 - Links: [usage](cs336_basics/README.md), [generation status](cs336_basics/generation/README.md),
-  [learning plan](docs/learning/PLAN.md).
+  [experiments](experiments/README.md), [learning plan](docs/learning/PLAN.md).
 
 ## Setup
 

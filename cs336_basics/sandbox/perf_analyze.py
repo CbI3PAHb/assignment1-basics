@@ -1,6 +1,7 @@
+# Paths below are relative to the repository root.
 # import pstats
 
-# perf_file_path = "/Users/parii-artem/Documents/assignment1-basics/output.prof"
+# perf_file_path = "output.prof"
 
 # stats = pstats.Stats(perf_file_path) # Load the profiling data
 # stats.sort_stats('tottime') # Sort by total time spent in the function itself
@@ -13,7 +14,7 @@
 import pstats
 
 # Load the profile data
-perf_file_path = "/Users/parii-artem/Documents/assignment1-basics/output.prof"
+perf_file_path = "output.prof"
 
 p = pstats.Stats(perf_file_path)
 n_top_stats = 32
