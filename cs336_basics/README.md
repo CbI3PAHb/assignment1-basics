@@ -6,7 +6,7 @@
 - Training: [run.py](training/run.py), [Trainer](training/trainer.py), [presets](training/training_presets/README.md).
   Includes evaluation loss/perplexity and configurable checkpoints.
 - Configuration: [typed YAML](config/README.md).
-- Generation: [sampling, CPU Scheduler, unfinished GPU integration](generation/README.md).
+- Generation: [packed paged generation and serving status](generation/README.md).
 
 Validate the example training YAML without starting training:
 
@@ -21,4 +21,4 @@ uv run cs336-basics train run --config cs336_basics/training/training_presets/tr
 ```
 
 - Exactly one `--config` is required.
-- CLI currently exposes training only. Packed generation entrypoint is unfinished; see [status](generation/README.md).
+- `cs336-basics` exposes training. Run packed generation with `uv run python -m cs336_basics.generation.demo`; see [JSONL input, path flags and status](generation/README.md).

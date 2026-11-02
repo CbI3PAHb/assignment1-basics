@@ -1,9 +1,7 @@
 # CS336 Spring 2025 Assignment 1: Basics
 
-- Assignment: [handout](./cs336_spring2025_assignment1_basics.pdf).
-- Report handout/code issues through GitHub issues or pull requests.
-- Implemented: tokenizer, model, training, CPU Scheduler and packed paged attention.
-- Unfinished: paged GPU serving integration.
+- Assignment: [pdf](./cs336_spring2025_assignment1_basics.pdf).
+- Implemented: tokenizer, model, training, packed paged offline generation and a checkpoint/tokenizer demo.
 - Links: [usage](cs336_basics/README.md), [generation status](cs336_basics/generation/README.md),
   [learning plan](docs/learning/PLAN.md).
 
@@ -42,8 +40,8 @@ uv run pytest
 ```
 
 - Assignment integration: [tests/adapters.py](tests/adapters.py), already implemented.
-- Full suite: not reverified after current inference changes.
-- Completed CPU Scheduler gate: [generation status](cs336_basics/generation/README.md).
+- Latest full suite (learner host): **785 passed, 12 xfailed, 1 xpassed, 4 warnings in 23.93s**. Implementation milestone complete.
+- Completed inference gates and demo usage: [generation status](cs336_basics/generation/README.md).
 
 ### Download data
 Download the TinyStories data and a subsample of OpenWebText
@@ -65,6 +63,5 @@ cd ..
 
 ## TODO
 
-- Connect packed execution to Engine, then add the serving loop and demo.
-- Validate integrated CPU/CUDA behavior and measure inference performance.
+- Measure inference performance; attention uses a Python segmented correctness reference.
 

@@ -12,6 +12,8 @@ from cs336_basics import cli
 from cs336_basics.config.io import load_experiment
 from cs336_basics.training import run as training_run
 
+pytestmark = pytest.mark.usefixtures("isolated_root_logging")
+
 
 class TinyLM(nn.Module):
     def __init__(self, vocab_size, d_model):
@@ -85,6 +87,12 @@ def _run_cli(raw, write_experiment):
 def _saved_checkpoints(output_dir):
     checkpoints = [(path, torch.load(path, map_location="cpu", weights_only=True)) for path in output_dir.glob("*.pt")]
     return sorted(checkpoints, key=lambda checkpoint: checkpoint[1]["iteration"])
+
+
+def _assert_failed_run_artifacts(output_dir, config_path):
+    assert output_dir.is_dir()
+    assert load_experiment(output_dir / "config.yaml") == load_experiment(config_path)
+    assert _saved_checkpoints(output_dir) == []
 
 
 def _assert_state_equal(actual, expected):
@@ -211,27 +219,42 @@ def test_run_saves_final_training_state(cpu_experiment, write_experiment, built_
 
 
 @pytest.mark.parametrize("split", ["train", "eval"])
-def test_missing_dataset_allows_retry_with_same_output_directory(cpu_experiment, write_experiment, split):
+def test_missing_dataset_preserves_attempt_and_requires_new_output_directory(cpu_experiment, write_experiment, split):
     Path(cpu_experiment["data"][split]["path"]).unlink()
     output_dir = Path(cpu_experiment["output_dir"])
+    config_path = write_experiment(cpu_experiment)
 
-    with pytest.raises(RuntimeError):
-        _run_cli(cpu_experiment, write_experiment)
-    assert not output_dir.exists()
+    with pytest.raises(RuntimeError, match="Dataset does not exist"):
+        cli.main(["train", "run", "--config", str(config_path)])
+    _assert_failed_run_artifacts(output_dir, config_path)
+    saved_config = (output_dir / "config.yaml").read_bytes()
 
     _write_tokens(cpu_experiment)
+    with pytest.raises(FileExistsError):
+        _run_cli(cpu_experiment, write_experiment)
+    assert (output_dir / "config.yaml").read_bytes() == saved_config
+    assert _saved_checkpoints(output_dir) == []
+
+    retry_dir = output_dir.with_name("retry")
+    cpu_experiment["output_dir"] = str(retry_dir)
     _run_cli(cpu_experiment, write_experiment)
-    assert [artifact["iteration"] for _, artifact in _saved_checkpoints(output_dir)] == [2, 4]
+    assert [artifact["iteration"] for _, artifact in _saved_checkpoints(retry_dir)] == [2, 4]
+    assert load_experiment(retry_dir / "config.yaml") == load_experiment(config_path)
+    assert (output_dir / "config.yaml").read_bytes() == saved_config
+    assert _saved_checkpoints(output_dir) == []
 
 
 @pytest.mark.parametrize("token_count", [1, 8])
-def test_too_short_dataset_does_not_create_output(token_count, cpu_experiment, write_experiment):
+def test_too_short_dataset_preserves_output_directory_and_resolved_config(
+    token_count, cpu_experiment, write_experiment
+):
     _write_tokens(cpu_experiment, count=token_count)
+    config_path = write_experiment(cpu_experiment)
 
-    with pytest.raises(ValueError):
-        _run_cli(cpu_experiment, write_experiment)
+    with pytest.raises(ValueError, match="train dataset must contain at least"):
+        cli.main(["train", "run", "--config", str(config_path)])
 
-    assert not Path(cpu_experiment["output_dir"]).exists()
+    _assert_failed_run_artifacts(Path(cpu_experiment["output_dir"]), config_path)
 
 
 def test_unavailable_cuda_does_not_create_output(cpu_experiment, write_experiment, monkeypatch):
@@ -246,7 +269,7 @@ def test_unavailable_cuda_does_not_create_output(cpu_experiment, write_experimen
 
 @pytest.mark.parametrize("initialization", ["resume_from", "init_weights_from"])
 @pytest.mark.parametrize("artifact_kind", ["missing", "corrupt"])
-def test_invalid_checkpoint_does_not_create_output(
+def test_invalid_checkpoint_preserves_output_directory_and_resolved_config(
     initialization, artifact_kind, cpu_experiment, write_experiment, tmp_path
 ):
     checkpoint_path = tmp_path / "invalid.pt"
@@ -256,11 +279,12 @@ def test_invalid_checkpoint_does_not_create_output(
     else:
         expected_errors = (FileNotFoundError,)
     cpu_experiment["checkpoint"][initialization] = str(checkpoint_path)
+    config_path = write_experiment(cpu_experiment)
 
     with pytest.raises(expected_errors):
-        _run_cli(cpu_experiment, write_experiment)
+        cli.main(["train", "run", "--config", str(config_path)])
 
-    assert not Path(cpu_experiment["output_dir"]).exists()
+    _assert_failed_run_artifacts(Path(cpu_experiment["output_dir"]), config_path)
 
 
 def test_existing_output_directory_is_preserved(cpu_experiment, write_experiment):

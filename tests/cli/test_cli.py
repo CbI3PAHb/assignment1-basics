@@ -21,6 +21,7 @@ def test_parse_args_accepts_one_yaml_config(action):
     assert args.config == Path("experiment.yaml")
 
 
+@pytest.mark.usefixtures("isolated_root_logging")
 def test_main_config_without_output_dir_prints_generated_path_without_creating_it(
     minimal_experiment, write_experiment, tmp_path, monkeypatch, capsys
 ):
@@ -90,6 +91,7 @@ def test_main_help_exits_successfully(argv, capsys):
     assert captured.err == ""
 
 
+@pytest.mark.usefixtures("isolated_root_logging")
 def test_main_config_prints_complete_yaml_without_importing_training(
     experiment_path, minimal_experiment, monkeypatch, capsys
 ):
@@ -150,6 +152,7 @@ def test_main_config_prints_complete_yaml_without_importing_training(
     assert list(experiment_path.parent.iterdir()) == [experiment_path]
 
 
+@pytest.mark.usefixtures("isolated_root_logging")
 def test_main_run_dispatches_the_loaded_experiment(experiment_path, monkeypatch, capsys):
     expected = load_experiment(experiment_path)
     loaded = []

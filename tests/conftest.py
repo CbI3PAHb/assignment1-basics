@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 from pathlib import Path
@@ -18,6 +19,32 @@ _A = TypeVar("_A", np.ndarray, Tensor)
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "cuda: numerical execution on a CUDA device")
+
+
+@pytest.fixture
+def isolated_root_logging(capsys):
+    """Restore application logging before capsys closes its captured streams."""
+    from cs336_basics.logging_setup import _ApplicationNullHandler, _ApplicationStreamHandler
+
+    root = logging.getLogger()
+    original_handlers, original_level = root.handlers[:], root.level
+    application_handlers = (_ApplicationStreamHandler, _ApplicationNullHandler)
+    # Protect pre-existing application handlers from setup_logging reconfiguration.
+    for handler in original_handlers:
+        if isinstance(handler, application_handlers):
+            root.removeHandler(handler)
+    try:
+        yield
+    finally:
+        for handler in root.handlers[:]:
+            if isinstance(handler, application_handlers):
+                root.removeHandler(handler)
+                handler.close()
+        # Preserve pytest/host handlers, including any added during this test.
+        root.handlers[:] = original_handlers + [
+            handler for handler in root.handlers if handler not in original_handlers
+        ]
+        root.setLevel(original_level)
 
 
 @pytest.fixture(
