@@ -72,7 +72,6 @@ class BlockManager:
     reserved_block_counts: dict[str, int] = attrs.field(factory=dict, validator=attrs.validators.instance_of(dict))
 
     available_block_count: int = attrs.field(init=False, validator=_NONNEGATIVE_INTEGER)
-    free_block_count: int = attrs.field(init=False, validator=_NONNEGATIVE_INTEGER)
     free_block_pool: set[int] = attrs.field(init=False, validator=attrs.validators.instance_of(set))
 
     def __attrs_post_init__(self) -> None:
@@ -90,11 +89,11 @@ class BlockManager:
             operation for a manager that already owns reservations.
         """
         self.available_block_count = self.num_blocks
-        self.free_block_count = self.num_blocks
         self.free_block_pool = set(range(self.num_blocks))
 
-    def update_free_block_count(self):
-        self.free_block_count = len(self.free_block_pool)
+    @property
+    def free_block_count(self) -> int:
+        return len(self.free_block_pool)
 
     def get_block_table(self, *, request_id: str) -> tuple[int, ...]:
         """Return an immutable snapshot of a request's physical block IDs.
@@ -175,7 +174,6 @@ class BlockManager:
         for _ in range(missing_blocks):
             block_id = self.free_block_pool.pop()
             self.block_tables[request_id].append(block_id)
-        self.update_free_block_count()
 
         return tuple(self.block_tables[request_id])
 
@@ -184,7 +182,7 @@ class BlockManager:
 
         A successful call reserves ceil(max_tokens / block_size) credits and
         creates an empty block table. It decreases available_block_count but
-        leaves free_block_count and free_block_pool unchanged.
+        leaves free_block_pool unchanged
 
         Args:
             request_id: Stable ID for the reservation to create.
@@ -250,7 +248,6 @@ class BlockManager:
             self.free_block_pool.add(block_id)
 
         self.available_block_count += self.reserved_block_counts[request_id]
-        self.free_block_count += len(block_table)
         del self.reserved_block_counts[request_id]
         del self.block_tables[request_id]
         return True
